@@ -93,3 +93,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
+
+/* === LBP utility classes pour badges et statuts === */
+.badge-pending { background: oklch(95% 0.04 80); color: oklch(35% 0.12 80); border: 1px solid oklch(85% 0.08 80); }
+.badge-sent { background: oklch(95% 0.04 240); color: oklch(40% 0.15 240); border: 1px solid oklch(80% 0.10 240); }
+.badge-signed { background: oklch(95% 0.04 150); color: oklch(35% 0.13 150); border: 1px solid oklch(80% 0.10 150); }
+.badge-partial { background: oklch(95% 0.05 50); color: oklch(38% 0.14 50); border: 1px solid oklch(80% 0.11 50); }
+.badge-expired { background: oklch(95% 0.04 25); color: oklch(40% 0.16 25); border: 1px solid oklch(80% 0.11 25); }
+.badge-cancelled { background: oklch(95% 0.005 250); color: oklch(40% 0.01 250); border: 1px solid oklch(85% 0.005 250); }

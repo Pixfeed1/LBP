@@ -8,6 +8,7 @@ import sys
 from config import settings
 from database import engine
 from routes import auth as auth_routes
+from routes import interventions as interventions_routes
 
 
 # === Logs ===
@@ -39,14 +40,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.APP_URL, "http://localhost:3010", "http://localhost:3000"],
+    allow_origins=[
+        settings.APP_URL,
+        "https://lesbonsplombiers.pixfeed.net",
+        "http://localhost:3010",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# === Routes ===
 @app.get("/")
 async def root():
     return {"service": "LBP v2", "version": "0.1.0", "status": "ok"}
@@ -70,5 +75,6 @@ async def health_check():
     }
 
 
-# === Auth routes ===
+# === Routes ===
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
+app.include_router(interventions_routes.router, prefix="/api/interventions", tags=["interventions"])
