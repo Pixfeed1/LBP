@@ -1,0 +1,69 @@
+services:
+  # ============================================================
+  # POSTGRES — Base de données principale
+  # ============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: lbp-v2-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    networks:
+      - lbp-v2-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # REDIS — Cache + queue Celery
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: lbp-v2-redis
+    restart: unless-stopped
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:6379"
+    networks:
+      - lbp-v2-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # BACKEND — FastAPI
+  # ============================================================
+  backend:
+    build: ./backend
+    container_name: lbp-v2-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+      - ./data/uploads:/app/uploads
+      - ./logs:/app/logs
+    ports:
+      - "127.0.0.1:${BACKEND_PORT}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lbp-v2-net
+
+networks:
+  lbp-v2-net:
+    external: true
