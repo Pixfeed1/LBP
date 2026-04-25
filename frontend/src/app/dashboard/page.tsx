@@ -15,6 +15,8 @@ import type {
   Intervention, InterventionListResponse, InterventionStats, InterventionStatus,
 } from "@/types/intervention";
 import { statusLabel } from "@/lib/format";
+import { NewInterventionDialog } from "@/components/dashboard/new-intervention-dialog";
+import { useRouter } from "next/navigation";
 
 const STATUS_TABS: { value: InterventionStatus | "all"; label: string }[] = [
   { value: "all", label: "Toutes" },
@@ -33,6 +35,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<InterventionStatus | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const router = useRouter();
 
   const loadStats = async () => {
     try {
@@ -102,7 +106,7 @@ export default function DashboardPage() {
               <Download className="h-3.5 w-3.5" />
               Exporter
             </button>
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+            <button onClick={() => setDialogOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
               <Plus className="h-3.5 w-3.5" />
               Nouvelle intervention
             </button>
@@ -202,6 +206,11 @@ export default function DashboardPage() {
           <InterventionsTable items={interventions} loading={loading} />
         </div>
       </main>
+      <NewInterventionDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={() => { handleRefresh(); }}
+      />
     </>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { Calendar, Phone, ChevronRight } from "lucide-react";
 import { Intervention, InterventionStatus } from "@/types/intervention";
 import { formatPrice, formatDateShort, statusLabel } from "@/lib/format";
@@ -13,6 +14,8 @@ const BADGE_CLASSES: Record<InterventionStatus, string> = {
 };
 
 export function InterventionsTable({ items, loading }: { items: Intervention[]; loading: boolean }) {
+  const router = useRouter();
+
   if (loading) {
     return (
       <div className="py-16 text-center text-muted-foreground text-sm">Chargement...</div>
@@ -42,7 +45,7 @@ export function InterventionsTable({ items, loading }: { items: Intervention[]; 
         </thead>
         <tbody className="divide-y divide-border">
           {items.map((it) => (
-            <tr key={it.id} className="hover:bg-muted/30 transition-colors cursor-pointer group">
+            <tr key={it.id} onClick={() => router.push(`/dashboard/interventions/${it.id}`)} className="hover:bg-muted/30 transition-colors cursor-pointer group">
               <td className="px-4 py-3">
                 <div className="font-medium text-sm">{it.client_nom} {it.client_prenom}</div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
