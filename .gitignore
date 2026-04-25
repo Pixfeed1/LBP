@@ -1,0 +1,36 @@
+# Secrets - JAMAIS COMMITÉ
+.env
+.env.local
+.env.production
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build
+.next/
+build/
+dist/
+*.egg-info/
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# OS
+Thumbs.db
