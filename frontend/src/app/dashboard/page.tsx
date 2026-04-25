@@ -15,7 +15,7 @@ import type {
   Intervention, InterventionListResponse, InterventionStats, InterventionStatus,
 } from "@/types/intervention";
 import { statusLabel } from "@/lib/format";
-import { NewInterventionDialog } from "@/components/dashboard/new-intervention-dialog";
+import { InterventionDialog } from "@/components/dashboard/intervention-dialog";
 import { useRouter } from "next/navigation";
 
 const STATUS_TABS: { value: InterventionStatus | "all"; label: string }[] = [
@@ -206,10 +206,10 @@ export default function DashboardPage() {
           <InterventionsTable items={interventions} loading={loading} />
         </div>
       </main>
-      <NewInterventionDialog
+      <InterventionDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreated={() => { handleRefresh(); }}
+        onSaved={() => { handleRefresh(); }}
       />
     </>
   );

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
+import { InterventionDialog } from "@/components/dashboard/intervention-dialog";
 import { api } from "@/lib/api";
 import {
   formatPrice, formatDate, formatDateShort, statusLabel,
@@ -34,6 +35,17 @@ export default function InterventionDetailPage() {
   const [intervention, setIntervention] = useState<Intervention | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const reload = async () => {
+    if (!id) return;
+    try {
+      const res = await api.get<Intervention>(`/api/interventions/${id}`);
+      setIntervention(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -92,7 +104,7 @@ export default function InterventionDetailPage() {
             Retour au tableau de bord
           </button>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
               <Edit className="mr-1.5 h-3.5 w-3.5" />
               Modifier
             </Button>
@@ -263,6 +275,12 @@ export default function InterventionDetailPage() {
           )}
         </div>
       </main>
+      <InterventionDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { reload(); }}
+        intervention={intervention}
+      />
     </>
   );
 }

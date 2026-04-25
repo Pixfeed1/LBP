@@ -9,6 +9,7 @@ from config import settings
 from database import engine
 from routes import auth as auth_routes
 from routes import interventions as interventions_routes
+from routes import calendar as calendar_routes
 
 
 # === Logs ===
@@ -78,3 +79,4 @@ async def health_check():
 # === Routes ===
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(interventions_routes.router, prefix="/api/interventions", tags=["interventions"])
+app.include_router(calendar_routes.router, prefix="/api/calendar", tags=["calendar"])
