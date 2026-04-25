@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* ============================================================
+ * Design tokens Les Bons Plombiers v2
+ * ============================================================
+ * Variables CSS pour shadcn/ui compatibility + identité LBP
+ * ============================================================ */
+
+:root {
+  /* Palette LBP — Bleu professionnel plomberie */
+  --lbp-blue-50: #eff6ff;
+  --lbp-blue-100: #dbeafe;
+  --lbp-blue-500: #3b82f6;
+  --lbp-blue-600: #2563eb;  /* Couleur principale */
+  --lbp-blue-700: #1d4ed8;
+  --lbp-blue-900: #1e3a8a;
+
+  /* Neutres */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: var(--lbp-blue-600);
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: var(--lbp-blue-600);
+  --radius: 0.5rem;
+}
+
+/* Mapping Tailwind v4 — utilisable comme classes (bg-primary, text-foreground...) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-lbp-blue-50: var(--lbp-blue-50);
+  --color-lbp-blue-100: var(--lbp-blue-100);
+  --color-lbp-blue-500: var(--lbp-blue-500);
+  --color-lbp-blue-600: var(--lbp-blue-600);
+  --color-lbp-blue-700: var(--lbp-blue-700);
+  --color-lbp-blue-900: var(--lbp-blue-900);
+
+  --font-sans: var(--font-inter);
+  --radius: 0.5rem;
+}
+
+/* Reset + base */
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
