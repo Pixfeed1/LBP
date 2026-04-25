@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from loguru import logger
 
 from database import get_db
-from models import User, Intervention, InterventionStatus
+from models import User, Intervention, InterventionStatus, Signature, Document
 from schemas.signature import SendSignatureRequest, SendSignatureResponse
 from services.signature_service import prepare_signature_workflow
 from schemas.intervention import (
@@ -233,3 +233,57 @@ async def send_for_signature(
     
     return SendSignatureResponse(**result)
 
+
+
+
+@router.get("/{intervention_id}/signatures")
+def get_intervention_signatures(
+    intervention_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retourne les signatures d'une intervention avec preuves juridiques."""
+    intervention = db.query(Intervention).filter(Intervention.id == intervention_id).first()
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervention non trouvée")
+
+    signatures = db.query(Signature).filter(
+        Signature.intervention_id == intervention_id
+    ).all()
+
+    documents = db.query(Document).filter(
+        Document.intervention_id == intervention_id
+    ).all()
+
+    docs_map = {str(d.id): d.type.value for d in documents}
+
+    return {
+        "intervention_id": str(intervention_id),
+        "is_signed": intervention.status.value == "signed",
+        "signatures": [
+            {
+                "id": str(s.id),
+                "document_id": str(s.document_id),
+                "document_type": docs_map.get(str(s.document_id), "?"),
+                "status": s.status.value,
+                "signed_at": s.signed_at.isoformat() if s.signed_at else None,
+                "signer_ip": s.signer_ip,
+                "signer_user_agent": s.signer_user_agent,
+                "signer_name_typed": s.signer_name_typed,
+                "signer_consent_text": s.signer_consent_text,
+                "hash_sha256": s.hash_sha256,
+                "signature_image": s.signature_image,
+                "provider": s.provider,
+            }
+            for s in signatures
+        ],
+        "documents": [
+            {
+                "id": str(d.id),
+                "type": d.type.value,
+                "status": d.status.value,
+                "signed_at": d.signed_at.isoformat() if d.signed_at else None,
+            }
+            for d in documents
+        ],
+    }

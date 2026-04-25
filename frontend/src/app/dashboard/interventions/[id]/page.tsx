@@ -33,6 +33,7 @@ export default function InterventionDetailPage() {
   const id = params.id as string;
 
   const [intervention, setIntervention] = useState<Intervention | null>(null);
+  const [signatures, setSignatures] = useState<SignatureData | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -43,6 +44,15 @@ export default function InterventionDetailPage() {
     try {
       const res = await api.get<Intervention>(`/api/interventions/${id}`);
       setIntervention(res.data);
+      // Charger les signatures si l'intervention est signée ou envoyée
+      if (res.data.status === "signed" || res.data.status === "sent") {
+        try {
+          const sigRes = await api.get<SignatureData>(`/api/interventions/${id}/signatures`);
+          setSignatures(sigRes.data);
+        } catch (e) {
+          console.warn("Pas de signatures trouvées", e);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -75,7 +85,17 @@ export default function InterventionDetailPage() {
   useEffect(() => {
     if (!id) return;
     api.get<Intervention>(`/api/interventions/${id}`)
-      .then((res) => setIntervention(res.data))
+      .then(async (res) => {
+        setIntervention(res.data);
+        if (res.data.status === "signed" || res.data.status === "sent") {
+          try {
+            const sigRes = await api.get<SignatureData>(`/api/interventions/${id}/signatures`);
+            setSignatures(sigRes.data);
+          } catch (e) {
+            console.warn("Pas de signatures", e);
+          }
+        }
+      })
       .catch((err) => {
         console.error(err);
         toast.error("Intervention introuvable");
@@ -289,6 +309,85 @@ export default function InterventionDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Section signature client (visible si signed) */}
+        {signatures && signatures.is_signed && signatures.signatures.length > 0 && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-5 mb-5">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-4 text-emerald-900">
+              <CheckCircle2 className="h-4 w-4" />
+              Signature client (preuve juridique)
+            </h3>
+            <div className="grid md:grid-cols-2 gap-5">
+              <div className="space-y-3">
+                <Field
+                  icon={<User className="h-3.5 w-3.5" />}
+                  label="Nom retape"
+                  value={signatures.signatures[0].signer_name_typed ?? "—"}
+                />
+                <Field
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="Mention manuscrite"
+                  value={signatures.signatures[0].signer_consent_text ?? "—"}
+                />
+                <Field
+                  icon={<Calendar className="h-3.5 w-3.5" />}
+                  label="Signe le"
+                  value={signatures.signatures[0].signed_at ? formatDate(signatures.signatures[0].signed_at) : "—"}
+                />
+                <Field
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Adresse IP"
+                  value={signatures.signatures[0].signer_ip ?? "—"}
+                />
+                <Field
+                  icon={<AlertCircle className="h-3.5 w-3.5" />}
+                  label="Hash SHA256"
+                  value={(signatures.signatures[0].hash_sha256 ?? "").substring(0, 32) + "..."}
+                />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Signature manuscrite</p>
+                {signatures.signatures[0].signature_image ? (
+                  <div className="bg-white border border-border rounded-lg p-3">
+                    <img
+                      src={signatures.signatures[0].signature_image}
+                      alt="Signature client"
+                      className="max-h-32 mx-auto"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Pas image</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 pt-5 border-t border-emerald-200">
+              <p className="text-xs font-medium text-emerald-900 mb-3">
+                Documents signes (telechargeables)
+              </p>
+              <div className="grid md:grid-cols-3 gap-2">
+                {signatures.documents.map((doc) => (
+                  
+                  <a
+                    key={doc.id}
+                    href={`${process.env.NEXT_PUBLIC_API_URL || "https://api-lesbonsplombiers.pixfeed.net"}/api/documents/${doc.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 bg-white hover:bg-emerald-100 rounded border border-emerald-200 transition text-sm"
+                  >
+                    <FileText className="h-4 w-4 text-emerald-700" />
+                    <span className="text-emerald-900 truncate">
+                      {doc.type === "proces_verbal" && "Proces-verbal"}
+                      {doc.type === "fiche_travaux" && "Fiche travaux"}
+                      {doc.type === "attestation_tva" && "Attestation TVA"}
+                      {doc.type === "delegation_paiement" && "Delegation"}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Métadonnées */}
         <div className="bg-muted/30 rounded-lg p-4 text-xs text-muted-foreground space-y-1">
