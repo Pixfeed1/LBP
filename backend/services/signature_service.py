@@ -9,6 +9,7 @@ from loguru import logger
 from models import Intervention, Document, InterventionStatus
 from models.document import DocumentType, DocumentStatus
 from config import settings
+from services.pdf_generation import generate_all_pdfs_for_intervention
 
 
 def generate_signature_token() -> str:
@@ -88,6 +89,14 @@ def prepare_signature_workflow(
     for doc in documents:
         db.refresh(doc)
     db.refresh(intervention)
+    
+    # 6. Générer les vrais PDFs maintenant
+    pdf_result = generate_all_pdfs_for_intervention(intervention, documents)
+    db.commit()  # Sauvegarder les chemins mis à jour
+    for doc in documents:
+        db.refresh(doc)
+    
+    logger.info(f"PDFs : {pdf_result['generated']}/{pdf_result['total']} générés")
     
     logger.info(
         f"Signature workflow préparé : intervention={intervention.id}, "

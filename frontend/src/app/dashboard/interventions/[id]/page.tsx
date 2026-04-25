@@ -36,6 +36,7 @@ export default function InterventionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const reload = async () => {
     if (!id) return;
@@ -44,6 +45,30 @@ export default function InterventionDetailPage() {
       setIntervention(res.data);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleSendSignature = async () => {
+    if (!intervention) return;
+    if (!confirm(`Envoyer ${intervention.client_nom} ${intervention.client_prenom} pour signature ?\n\nCela va générer les documents et créer un lien de signature valide 7 jours.`)) return;
+    
+    setSending(true);
+    try {
+      const res = await api.post(`/api/interventions/${intervention.id}/send-signature`, {
+        provider: "maison",
+        expires_in_days: 7,
+      });
+      const data = res.data as { signature_url: string; documents_generated: number };
+      toast.success(`${data.documents_generated} document(s) prêt(s) à signer !`, {
+        description: `Lien : ${data.signature_url.substring(0, 50)}...`,
+        duration: 6000,
+      });
+      await reload();
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error?.response?.data?.detail ?? "Erreur lors de l'envoi");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -151,14 +176,14 @@ export default function InterventionDetailPage() {
           {/* Actions principales */}
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
             {canSendSignature && (
-              <Button>
-                <Send className="mr-1.5 h-3.5 w-3.5" />
+              <Button onClick={handleSendSignature} disabled={sending}>
+                {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
                 Envoyer pour signature
               </Button>
             )}
             {intervention.status === "sent" && (
-              <Button variant="outline">
-                <Send className="mr-1.5 h-3.5 w-3.5" />
+              <Button variant="outline" onClick={handleSendSignature} disabled={sending}>
+                {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
                 Renvoyer le SMS
               </Button>
             )}
