@@ -12,12 +12,6 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=8)
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in_hours: int
-
-
 class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
@@ -29,3 +23,10 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in_hours: int
+    user: UserResponse
