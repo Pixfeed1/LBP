@@ -9,6 +9,8 @@ from loguru import logger
 
 from database import get_db
 from models import User, Intervention, InterventionStatus
+from schemas.signature import SendSignatureRequest, SendSignatureResponse
+from services.signature_service import prepare_signature_workflow
 from schemas.intervention import (
     InterventionCreate, InterventionUpdate, InterventionResponse,
     InterventionListResponse, InterventionStats
@@ -180,3 +182,54 @@ async def delete_intervention(
     
     logger.info(f"Intervention supprimée : {intervention_id} par {user.email}")
     return None
+
+
+@router.post("/{intervention_id}/send-signature", response_model=SendSignatureResponse)
+async def send_for_signature(
+    intervention_id: UUID,
+    payload: SendSignatureRequest = SendSignatureRequest(),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Déclenche le workflow signature :
+    - Génère un token unique
+    - Crée les entrées Document (PV, Attestation TVA, Fiche travaux)
+    - Passe le statut à 'sent'
+    - Retourne le token + URL pour SMS
+    
+    À ce stade, les PDFs ne sont PAS encore générés (étape suivante).
+    Les fichiers seront créés au moment où le client ouvre la page de signature.
+    """
+    intervention = db.query(Intervention).filter(Intervention.id == intervention_id).first()
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervention introuvable")
+    
+    # Vérifier que l'intervention est dans un statut valide
+    if intervention.status == InterventionStatus.CANCELLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cette intervention est annulée"
+        )
+    if intervention.status == InterventionStatus.SIGNED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cette intervention est déjà entièrement signée"
+        )
+    
+    # Lancer le workflow
+    result = prepare_signature_workflow(
+        db=db,
+        intervention=intervention,
+        provider=payload.provider,
+        document_types=payload.document_types,
+        expires_in_days=payload.expires_in_days,
+    )
+    
+    logger.info(
+        f"📨 Signature envoyée par {user.email} pour intervention {intervention_id} "
+        f"({result['documents_generated']} docs, provider={payload.provider})"
+    )
+    
+    return SendSignatureResponse(**result)
+
