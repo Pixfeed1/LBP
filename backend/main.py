@@ -7,7 +7,7 @@ import sys
 
 from config import settings
 from database import engine
-from routes import auth as auth_routes, signatures
+from routes import auth as auth_routes, signatures as signatures_routes
 from routes import interventions as interventions_routes
 from routes import calendar as calendar_routes
 from routes import documents as documents_routes
@@ -81,6 +81,7 @@ async def health_check():
 # === Routes ===
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(interventions_routes.router, prefix="/api/interventions", tags=["interventions"])
+app.include_router(signatures_routes.router, prefix="/api/signatures", tags=["signatures"])
 app.include_router(calendar_routes.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(documents_routes.router, prefix="/api/documents", tags=["documents"])
 app.include_router(public_signature_routes.router, prefix="/api/public/signature", tags=["public-signature"])
