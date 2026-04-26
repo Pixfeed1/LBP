@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   FileText, User, Banknote, Edit, Trash2, Send, CheckCircle2,
-  Loader2, AlertCircle,
+  Loader2, AlertCircle, Check,
+  ChevronLeft, MoreVertical, RefreshCw as RefreshCwIcon,
+  Plus, Download, FileText as FileTextIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -138,7 +140,18 @@ export default function InterventionDetailPage() {
     <>
       <Topbar breadcrumb={fullName} />
 
-      <main className="flex-1 px-5 py-5 max-w-5xl w-full mx-auto">
+      {/* ===== MOBILE VIEW (< lg) ===== */}
+      <MobileInterventionDetail
+        intervention={intervention}
+        signatures={signatures}
+        sending={sending}
+        handleBack={() => router.push("/dashboard/interventions")}
+        handleSendSignature={handleSendSignature}
+      />
+
+      
+
+      <main className="hidden lg:block flex-1 px-5 py-5 max-w-5xl w-full mx-auto">
         {/* Back button + actions */}
         <div className="flex items-center justify-between mb-5">
           <button
@@ -504,3 +517,388 @@ function Field({
     </div>
   );
 }
+
+
+// ============================================================
+// MOBILE VIEW : Detail intervention (mockup phase2c-2)
+// Tabs : Infos / Docs · 3 / Activité + sticky CTA bas
+// ============================================================
+
+
+type MobileTab = "infos" | "docs" | "activite";
+
+function MobileInterventionDetail({
+  intervention,
+  signatures,
+  sending,
+  handleBack,
+  handleSendSignature,
+}: {
+  intervention: any;
+  signatures: any;
+  sending: boolean;
+  handleBack: () => void;
+  handleSendSignature: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<MobileTab>("infos");
+
+  const fullName = `${intervention.client_nom ?? ""} ${intervention.client_prenom ?? ""}`.trim();
+  const docsCount = signatures?.documents?.length ?? 0;
+  const signedCount = signatures?.documents?.filter((d: any) => d.status === "signed").length ?? 0;
+
+  const dateRdv = intervention.date_rdv ? new Date(intervention.date_rdv) : null;
+  const dateStr = dateRdv
+    ? dateRdv.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
+    : "Date à définir";
+
+  const heureRdv = dateRdv ? dateRdv.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
+
+  const idShort = intervention.id ? `#${intervention.id.slice(0, 8)}` : "#———";
+
+  // Status global
+  const status = intervention.status;
+  const isFullySigned = signedCount === docsCount && docsCount > 0;
+  const statusColor = isFullySigned ? "emerald" : status === "pending" ? "amber" : "blue";
+
+  return (
+    <div className="lg:hidden flex-1 flex flex-col">
+      {/* Topbar mobile : retour + ID + nom + menu */}
+      <div className="sticky top-12 z-20 bg-white border-b border-border px-3 py-2.5 flex items-center gap-2">
+        <button
+          onClick={handleBack}
+          className="p-2 -ml-1 rounded-md hover:bg-muted/60 active:bg-muted flex-shrink-0"
+          aria-label="Retour"
+        >
+          <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
+        </button>
+        <div className="flex-1 min-w-0 text-center">
+          <div className="text-[10px] text-muted-foreground font-mono leading-none">{idShort}</div>
+          <div className="text-sm font-semibold truncate leading-tight mt-0.5">{fullName || "Intervention"}</div>
+        </div>
+        <button className="p-2 -mr-1 rounded-md hover:bg-muted/60 active:bg-muted flex-shrink-0" aria-label="Actions">
+          <MoreVertical className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="sticky top-[88px] z-10 bg-white border-b border-border flex items-center px-3 gap-1 overflow-x-auto">
+        <MobileTabBtn active={activeTab === "infos"} onClick={() => setActiveTab("infos")}>Infos</MobileTabBtn>
+        <MobileTabBtn active={activeTab === "docs"} onClick={() => setActiveTab("docs")}>
+          Docs{docsCount > 0 ? ` · ${docsCount}` : ""}
+        </MobileTabBtn>
+        <MobileTabBtn active={activeTab === "activite"} onClick={() => setActiveTab("activite")}>Activité</MobileTabBtn>
+      </div>
+
+      {/* Contenu scrollable */}
+      <div className="flex-1 px-3 py-3 pb-24 space-y-3">
+        {activeTab === "infos" && (
+          <>
+            {/* Status card */}
+            <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+              statusColor === "emerald" ? "bg-emerald-50 border-emerald-200" :
+              statusColor === "amber" ? "bg-amber-50 border-amber-200" :
+              "bg-blue-50 border-blue-200"
+            }`}>
+              <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
+                statusColor === "emerald" ? "bg-emerald-500 text-white" :
+                statusColor === "amber" ? "bg-amber-500 text-white" :
+                "bg-blue-500 text-white"
+              }`}>
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={`text-sm font-semibold ${
+                  statusColor === "emerald" ? "text-emerald-900" :
+                  statusColor === "amber" ? "text-amber-900" :
+                  "text-blue-900"
+                }`}>
+                  {docsCount > 0 ? `${signedCount} / ${docsCount} signés` : "Aucun document"}
+                </div>
+                <div className={`text-xs ${
+                  statusColor === "emerald" ? "text-emerald-700" :
+                  statusColor === "amber" ? "text-amber-700" :
+                  "text-blue-700"
+                }`}>
+                  {isFullySigned ? "Tous signés" : `Statut : ${status}`}
+                </div>
+              </div>
+            </div>
+
+            {/* Card Rendez-vous */}
+            <MobileCard title="Rendez-vous">
+              <MobileField label="Date" value={dateStr} />
+              {heureRdv && <MobileField label="Heure" value={heureRdv} />}
+              <MobileField
+                label="Adresse"
+                value={
+                  intervention.client_adresse
+                    ? `${intervention.client_adresse}, ${intervention.client_code_postal ?? ""} ${intervention.client_ville ?? ""}`.trim()
+                    : "—"
+                }
+              />
+              {intervention.client_acces && <MobileField label="Accès" value={intervention.client_acces} />}
+            </MobileCard>
+
+            {/* Card Client */}
+            <MobileCard title="Client">
+              <MobileField label="Téléphone" value={intervention.client_telephone || "—"} mono />
+              <MobileField label="Email" value={intervention.client_email || "—"} />
+            </MobileCard>
+
+            {/* Card Travaux */}
+            <MobileCard title="Travaux">
+              <div className="text-sm leading-relaxed">
+                {intervention.description_travaux || "—"}
+              </div>
+              {intervention.montant_ttc != null && (
+                <div className="mt-3 pt-3 border-t border-border/40 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Montant TTC</span>
+                  <span className="text-lg font-semibold text-primary tabular-nums">
+                    {(intervention.montant_ttc / 100).toFixed(2)} €
+                  </span>
+                </div>
+              )}
+            </MobileCard>
+          </>
+        )}
+
+        {activeTab === "docs" && (
+          <>
+            {docsCount === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">
+                <FileTextIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                Aucun document généré
+              </div>
+            ) : (
+              <>
+                {/* Liste docs */}
+                <MobileCard title={`Documents · ${docsCount}`}>
+                  <div className="space-y-2 -mx-3 -mb-3">
+                    {signatures.documents.map((doc: any) => (
+                      <MobileDocRow key={doc.id} doc={doc} />
+                    ))}
+                  </div>
+                </MobileCard>
+
+                {/* Preuve juridique si signé */}
+                {signatures.signer_info?.signed_at && (
+                  <MobileCard title="Preuve · Signature client">
+                    <MobileField
+                      label="Horodatage"
+                      value={new Date(signatures.signer_info.signed_at).toLocaleString("fr-FR")}
+                      mono
+                    />
+                    {signatures.signer_info.ip && (
+                      <MobileField label="IP" value={signatures.signer_info.ip} mono />
+                    )}
+                    {signatures.signer_info.hash && (
+                      <MobileField
+                        label="SHA-256"
+                        value={`${signatures.signer_info.hash.slice(0, 16)}…`}
+                        mono
+                        small
+                      />
+                    )}
+                    {signatures.signer_info.consent_text && (
+                      <MobileField
+                        label="Mention"
+                        value={`"${signatures.signer_info.consent_text}"`}
+                        italic
+                      />
+                    )}
+                  </MobileCard>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "activite" && (
+          <MobileCard title="Chronologie">
+            <ul className="space-y-3 text-xs">
+              <MobileTimelineItem
+                active
+                title={isFullySigned ? "Signature client reçue" : "En attente"}
+                meta={signatures?.signer_info?.signed_at
+                  ? new Date(signatures.signer_info.signed_at).toLocaleString("fr-FR")
+                  : "Pas encore signé"}
+              />
+              {signatures?.signer_info?.signed_at && (
+                <MobileTimelineItem
+                  done
+                  title="SMS de signature envoyé"
+                  meta={`Délivré · ${intervention.client_telephone}`}
+                />
+              )}
+              <MobileTimelineItem
+                done
+                title="Documents générés"
+                meta={`${docsCount} document(s) PDF`}
+              />
+              <MobileTimelineItem
+                done
+                title="Intervention créée"
+                meta={new Date(intervention.created_at).toLocaleString("fr-FR")}
+              />
+            </ul>
+          </MobileCard>
+        )}
+      </div>
+
+      {/* Sticky bottom actions */}
+      <div className="lg:hidden fixed bottom-14 left-0 right-0 z-20 bg-white border-t border-border px-3 py-2.5 flex gap-2">
+        <button
+          onClick={() => { if (intervention.client_telephone) { window.location.href = "tel:" + intervention.client_telephone; } }}
+          disabled={!intervention.client_telephone}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm border border-border rounded-md bg-white hover:bg-muted/30 active:bg-muted/50 transition-colors disabled:opacity-50"
+          style={{ minHeight: "44px" }}
+        >
+          <Phone className="h-3.5 w-3.5" />
+          Appeler
+        </button>
+        <button
+          onClick={handleSendSignature}
+          disabled={sending || isFullySigned}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ minHeight: "44px" }}
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCwIcon className="h-3.5 w-3.5" />}
+          {isFullySigned ? "Tout signé" : signatures?.signer_info?.signed_at ? "Renvoyer" : "Envoyer"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MobileTabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+        active
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`}
+      style={{ minHeight: "40px" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MobileCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-border rounded-lg p-3.5">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+        {title}
+      </div>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function MobileField({
+  label,
+  value,
+  mono = false,
+  italic = false,
+  small = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  italic?: boolean;
+  small?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-baseline gap-3">
+      <span className="text-xs text-muted-foreground flex-shrink-0">{label}</span>
+      <span className={`text-right text-sm break-words ${mono ? "font-mono" : ""} ${italic ? "italic" : ""} ${small ? "text-xs" : ""}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function MobileDocRow({ doc }: { doc: any }) {
+  const isSigned = doc.status === "signed";
+  const labels: Record<string, string> = {
+    proces_verbal: "Procès-verbal",
+    fiche_travaux: "Fiche travaux",
+    attestation_tva: "Attestation TVA",
+    delegation_paiement: "Délégation",
+  };
+  const label = labels[doc.type] || doc.type;
+
+  const handleDownload = async () => {
+    try {
+      const res = await api.get(`/api/documents/${doc.id}/download`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Erreur ouverture PDF");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+    >
+      <div className={`flex-shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[10px] font-bold ${
+        isSigned ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+      }`}>
+        PDF
+      </div>
+      <div className="flex-1 min-w-0 text-left">
+        <div className="text-sm font-medium truncate">{label}</div>
+        <div className="text-[11px] text-muted-foreground truncate">
+          {isSigned ? "Signé · Toucher pour ouvrir" : "En attente"}
+        </div>
+      </div>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+        isSigned ? "bg-emerald-500" : "bg-muted-foreground/30"
+      }`}>
+        <span className="block w-1 h-1"></span>
+      </span>
+    </button>
+  );
+}
+
+function MobileTimelineItem({
+  active = false,
+  done = false,
+  title,
+  meta,
+}: {
+  active?: boolean;
+  done?: boolean;
+  title: string;
+  meta: string;
+}) {
+  return (
+    <li className="relative flex items-start gap-2.5 pl-4">
+      <span
+        className={`absolute left-0 top-1.5 w-2 h-2 rounded-full ${
+          active ? "bg-primary ring-2 ring-primary/30" : done ? "bg-emerald-500" : "bg-muted-foreground/40"
+        }`}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-[11px] text-muted-foreground">{meta}</div>
+      </div>
+    </li>
+  );
+}
+
