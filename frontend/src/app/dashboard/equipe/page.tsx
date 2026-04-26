@@ -18,8 +18,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const ROLE_BADGE_CLASSES: Record<UserRole, string> = {
-  admin: "bg-purple-50 text-purple-700 border-purple-200",
-  manager: "bg-blue-50 text-blue-700 border-blue-200",
+  admin: "bg-primary/10 text-primary border-primary/20",
+  manager: "bg-amber-50 text-amber-700 border-amber-200",
   collaborator: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
@@ -100,7 +100,7 @@ export default function EquipePage() {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <StatCard label="Membres total" value={stats?.total ?? 0} icon={<Users className="h-4 w-4" />} />
           <StatCard label="Actifs" value={stats?.active ?? 0} icon={<Check className="h-4 w-4" />} tone="success" />
-          <StatCard label="Administrateurs" value={stats?.by_role?.admin ?? 0} icon={<ShieldCheck className="h-4 w-4" />} tone="purple" />
+          <StatCard label="Administrateurs" value={stats?.by_role?.admin ?? 0} icon={<ShieldCheck className="h-4 w-4" />} tone="primary" />
         </div>
 
         {/* Tableau desktop */}
@@ -155,7 +155,7 @@ export default function EquipePage() {
         <div className="grid grid-cols-3 gap-2 mb-4">
           <MobileStat label="Total" value={stats?.total ?? 0} />
           <MobileStat label="Actifs" value={stats?.active ?? 0} tone="success" />
-          <MobileStat label="Admins" value={stats?.by_role?.admin ?? 0} tone="purple" />
+          <MobileStat label="Admins" value={stats?.by_role?.admin ?? 0} tone="primary" />
         </div>
 
         {/* Cards membres */}
@@ -228,9 +228,9 @@ export default function EquipePage() {
 // Composants
 // ============================================================
 
-function StatCard({ label, value, icon, tone = "neutral" }: { label: string; value: number; icon: React.ReactNode; tone?: "neutral" | "success" | "purple" }) {
-  const valueColor = tone === "success" ? "text-emerald-600" : tone === "purple" ? "text-purple-600" : "text-foreground";
-  const iconBg = tone === "success" ? "bg-emerald-100 text-emerald-700" : tone === "purple" ? "bg-purple-100 text-purple-700" : "bg-muted text-muted-foreground";
+function StatCard({ label, value, icon, tone = "neutral" }: { label: string; value: number; icon: React.ReactNode; tone?: "neutral" | "success" | "primary" }) {
+  const valueColor = tone === "success" ? "text-emerald-600" : tone === "primary" ? "text-primary" : "text-foreground";
+  const iconBg = tone === "success" ? "bg-emerald-100 text-emerald-700" : tone === "primary" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
   return (
     <div className="bg-white border border-border rounded-lg p-4">
       <div className="flex items-center gap-3">
@@ -246,8 +246,8 @@ function StatCard({ label, value, icon, tone = "neutral" }: { label: string; val
   );
 }
 
-function MobileStat({ label, value, tone }: { label: string; value: number; tone?: "success" | "purple" }) {
-  const valueColor = tone === "success" ? "text-emerald-600" : tone === "purple" ? "text-purple-600" : "text-foreground";
+function MobileStat({ label, value, tone }: { label: string; value: number; tone?: "success" | "primary" }) {
+  const valueColor = tone === "success" ? "text-emerald-600" : tone === "primary" ? "text-primary" : "text-foreground";
   return (
     <div className="bg-white border border-border rounded-lg p-2.5">
       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
