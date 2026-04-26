@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  CheckCircle2, XCircle, AlertTriangle, Link2, Unlink,
-  RefreshCw, Calendar, Clock, ArrowRight, FileText,
-  Loader2, Zap, Bell, Workflow,
+  CheckCircle2, XCircle, AlertTriangle, Link2, Unlink, RefreshCw, Calendar, Clock, ArrowRight, FileText, Loader2, Zap, Bell, Workflow, Check, ChevronRight, Settings, Activity,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
@@ -76,7 +74,18 @@ export default function CalendarPage() {
     <>
       <Topbar breadcrumb="Synchro Calendar" />
 
-      <main className="flex-1 px-5 py-5 max-w-5xl w-full mx-auto space-y-5">
+      {/* ===== MOBILE VIEW (< lg) ===== */}
+      <MobileSyncCalendar
+        status={status}
+        stats={stats}
+        history={history}
+        loading={loading}
+        testing={testing}
+      />
+
+      
+
+      <main className="hidden lg:block flex-1 px-5 py-5 max-w-5xl w-full mx-auto space-y-5">
         {/* Page head */}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Synchronisation Google Calendar</h1>
@@ -410,3 +419,149 @@ function PendingKevinNote() {
     </div>
   );
 }
+
+
+// ============================================================
+// MOBILE VIEW : Sync Calendar (mockup phase2d)
+// ============================================================
+
+function MobileSyncCalendar(props: any) {
+  const { status, stats, history, loading, testing } = props;
+
+  if (loading) {
+    return (
+      <div className="lg:hidden flex-1 flex items-center justify-center py-20">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isConnected = status && status.is_connected;
+  const hasError = status && status.error_message;
+
+  if (!isConnected && !hasError) {
+    return (
+      <div className="lg:hidden flex-1 px-3 py-3 pb-24 space-y-3">
+        <div className="bg-white border border-border rounded-lg p-5 text-center">
+          <div className="w-12 h-12 rounded-full bg-muted/50 mx-auto mb-3 flex items-center justify-center">
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <h2 className="text-base font-semibold mb-1">Pas encore connecte</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Connectez Google Calendar pour synchroniser vos interventions automatiquement.
+          </p>
+          <button
+            disabled
+            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+            style={{ minHeight: "44px" }}
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            Connecter (en attente Kevin)
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="lg:hidden flex-1 px-3 py-3 pb-24 space-y-3">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-red-500 flex items-center justify-center">
+              <AlertTriangle className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-red-900">Connexion en erreur</h2>
+              <p className="text-xs text-red-700 mt-0.5 break-words">
+                {status.error_message || "Token expire ou revoque"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const accountEmail = status.account_email || "-";
+  const calendarName = status.calendar_name || "Calendrier principal";
+  const todayCount = stats && stats.events_today_count !== undefined ? stats.events_today_count : 0;
+  const totalSynced = stats && stats.total_synced !== undefined ? stats.total_synced : 0;
+
+  return (
+    <div className="lg:hidden flex-1 px-3 py-3 pb-24 space-y-3">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+          <Check className="h-4 w-4" strokeWidth={3} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-emerald-900 flex items-center gap-1.5">
+            Connecte
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/70 text-emerald-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              live
+            </span>
+          </div>
+          <div className="text-[11px] text-emerald-700">
+            {testing ? "Test en cours..." : "Sync active"}
+          </div>
+        </div>
+      </div>
+
+      <MobileCalCard title="Compte connecte">
+        <div className="text-xs font-medium truncate">{accountEmail}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          Calendar : <strong className="text-foreground/80 font-medium">{calendarName}</strong>
+        </div>
+      </MobileCalCard>
+
+      <MobileCalCard title="Statistiques">
+        <MobileCalStatRow label="Events aujourd hui" value={todayCount} success={todayCount > 0} />
+        <MobileCalStatRow label="Total synchronises" value={totalSynced} />
+      </MobileCalCard>
+
+      {history && history.length > 0 ? (
+        <MobileCalCard title="Activite recente">
+          <div className="space-y-1.5">
+            {history.slice(0, 5).map(function(entry: any, idx: number) {
+              const success = entry.success !== false;
+              return (
+                <div key={idx} className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground truncate">
+                    {entry.created_at ? new Date(entry.created_at).toLocaleString("fr-FR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "-"}
+                  </span>
+                  <span className={"inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium " + (success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
+                    <span className={"w-1 h-1 rounded-full " + (success ? "bg-emerald-500" : "bg-red-500")}></span>
+                    {success ? "OK" : "erreur"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </MobileCalCard>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileCalCard(props: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white border border-border rounded-lg p-3.5">
+      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+        {props.title}
+      </div>
+      {props.children}
+    </div>
+  );
+}
+
+function MobileCalStatRow(props: { label: string; value: number; success?: boolean }) {
+  const colorClass = props.success ? "text-emerald-600" : "text-foreground";
+  return (
+    <div className="flex items-center justify-between py-1 text-[12px]">
+      <span className="text-muted-foreground">{props.label}</span>
+      <strong className={"tabular-nums font-semibold " + colorClass}>{props.value}</strong>
+    </div>
+  );
+}
+
