@@ -7,7 +7,7 @@ import sys
 
 from config import settings
 from database import engine
-from routes import auth as auth_routes
+from routes import auth as auth_routes, signatures
 from routes import interventions as interventions_routes
 from routes import calendar as calendar_routes
 from routes import documents as documents_routes
