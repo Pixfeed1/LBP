@@ -84,7 +84,65 @@ export default function DashboardPage() {
     <>
       <Topbar breadcrumb="Tableau de bord" />
 
-      <main className="flex-1 px-5 py-5 max-w-[1400px] w-full mx-auto">
+      {/* ===== MOBILE VIEW (< lg) ===== */}
+      <main className="lg:hidden flex-1 px-3 pt-3 pb-4">
+        {/* KPIs en 2x2 */}
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          <MobileKpi
+            label="Interventions"
+            value={stats?.total ?? "—"}
+            sub={stats && stats.this_week ? `+${stats.this_week} cette sem.` : "Total"}
+            tone="success"
+          />
+          <MobileKpi
+            label="Signées"
+            value={stats?.signed ?? "—"}
+            sub={stats && stats.total ? `${Math.round((stats.signed / stats.total) * 100)}% taux` : "—"}
+          />
+          <MobileKpi
+            label="En attente"
+            value={(stats?.pending ?? 0) + (stats?.sent ?? 0)}
+            sub={stats?.sent ? `${stats.sent} à relancer` : "—"}
+            tone="warning"
+          />
+          <MobileKpi
+            label="Interventions"
+            value={stats?.this_month ?? "—"}
+            sub="Ce mois"
+          />
+        </div>
+
+        {/* À venir cette semaine */}
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h2 className="text-sm font-semibold">À venir cette semaine</h2>
+          <button
+            onClick={() => router.push("/dashboard/interventions")}
+            className="text-xs text-primary"
+          >
+            Voir tout
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Chargement…</div>
+        ) : interventions.length === 0 ? (
+          <div className="py-12 text-center text-xs text-muted-foreground bg-white border border-border rounded-lg">
+            Aucune intervention à venir
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {interventions.slice(0, 5).map((iv) => (
+              <MobileRdvCard
+                key={iv.id}
+                intervention={iv}
+                onClick={() => router.push(`/dashboard/interventions/${iv.id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <main className="hidden lg:block flex-1 px-5 py-5 max-w-[1400px] w-full mx-auto">
         {/* Page head */}
         <div className="flex items-start justify-between flex-wrap gap-4 mb-6">
           <div>
@@ -214,3 +272,88 @@ export default function DashboardPage() {
     </>
   );
 }
+
+
+// ============================================================
+// Composants mobile-specific
+// ============================================================
+
+function MobileKpi({
+  label,
+  value,
+  sub,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  tone?: "neutral" | "success" | "warning" | "danger";
+}) {
+  const subColors = {
+    neutral: "text-muted-foreground",
+    success: "text-emerald-600",
+    warning: "text-amber-600",
+    danger: "text-red-600",
+  };
+  return (
+    <div className="bg-white border border-border rounded-lg p-3">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+      <div className="text-2xl font-bold leading-tight">{value}</div>
+      {sub && <div className={`text-[10px] mt-0.5 ${subColors[tone]}`}>{sub}</div>}
+    </div>
+  );
+}
+
+function MobileRdvCard({
+  intervention,
+  onClick,
+}: {
+  intervention: Intervention;
+  onClick: () => void;
+}) {
+  const initials = (
+    (intervention.client_prenom?.[0] ?? "") + (intervention.client_nom?.[0] ?? "")
+  ).toUpperCase() || "??";
+
+  const statusBadge: Record<string, { label: string; classes: string }> = {
+    pending: { label: "En attente", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+    sent: { label: "SMS envoyé", classes: "bg-blue-50 text-blue-700 border-blue-200" },
+    signed: { label: "Signé", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    partial: { label: "Partiel", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+    expired: { label: "Expiré", classes: "bg-slate-50 text-slate-600 border-slate-200" },
+    cancelled: { label: "Annulé", classes: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const badge = statusBadge[intervention.status] ?? { label: intervention.status, classes: "bg-muted text-muted-foreground border-border" };
+
+  // Format date courte
+  const dateRdv = intervention.date_rdv ? new Date(intervention.date_rdv) : null;
+  const dateStr = dateRdv
+    ? dateRdv.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })
+    : "Date à définir";
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full bg-white border border-border rounded-lg p-3 flex items-start gap-3 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">
+          {intervention.client_nom} {intervention.client_prenom}
+        </div>
+        <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+          {dateStr}
+          {intervention.client_ville ? ` · ${intervention.client_ville}` : ""}
+        </div>
+        <div className="mt-1.5">
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${badge.classes}`}>
+            {badge.label}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+

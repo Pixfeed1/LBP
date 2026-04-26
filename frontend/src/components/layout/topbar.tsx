@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, HelpCircle, LogOut } from "lucide-react";
+import { Search, Bell, HelpCircle, LogOut, Menu } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function Topbar({ breadcrumb }: { breadcrumb: string }) {
@@ -16,7 +16,20 @@ export function Topbar({ breadcrumb }: { breadcrumb: string }) {
 
   return (
     <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-border">
-      <div className="flex items-center h-12 px-5 gap-3">
+      {/* Mobile header (< lg) */}
+      <div className="lg:hidden flex items-center h-12 px-3 gap-2">
+        <button className="p-2 -ml-1 rounded-md hover:bg-muted/60 transition-colors" aria-label="Menu">
+          <Menu className="h-5 w-5 text-foreground" />
+        </button>
+        <div className="flex-1 text-center text-sm font-semibold truncate">{breadcrumb}</div>
+        <button className="relative p-2 -mr-1 rounded-md hover:bg-muted/60 transition-colors" aria-label="Notifications">
+          <Bell className="h-5 w-5 text-foreground" />
+          <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
+        </button>
+      </div>
+
+      {/* Desktop header (>= lg) */}
+      <div className="hidden lg:flex items-center h-12 px-5 gap-3">
         <div className="flex items-center gap-1 text-sm">
           <span className="text-muted-foreground">Les Bons Plombiers</span>
           <span className="text-muted-foreground/50">/</span>

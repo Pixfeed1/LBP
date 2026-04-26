@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">{children}</div>
+      <div className="flex-1 flex flex-col min-w-0 pb-14 lg:pb-0">
+        {children}
+      </div>
+      <MobileBottomNav />
     </div>
   );
 }
