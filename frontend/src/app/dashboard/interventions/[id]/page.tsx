@@ -207,16 +207,65 @@ export default function InterventionDetailPage() {
                 Renvoyer le SMS
               </Button>
             )}
-            {intervention.status === "signed" && (
-              <Button variant="outline">
+            {intervention.status === "signed" && signatures && signatures.documents.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    for (const doc of signatures.documents) {
+                      const res = await api.get(
+                        `/api/documents/${doc.id}/download`,
+                        { responseType: "blob" }
+                      );
+                      const blob = new Blob([res.data], { type: "application/pdf" });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${doc.type}_${intervention.client_nom}_${intervention.client_prenom}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                      // Petit délai entre chaque pour éviter que Chrome bloque les downloads multiples
+                      await new Promise((r) => setTimeout(r, 300));
+                    }
+                  } catch (e) {
+                    console.error("Telechargement multiple erreur:", e);
+                    alert("Erreur lors du telechargement des documents");
+                  }
+                }}
+              >
                 <FileText className="mr-1.5 h-3.5 w-3.5" />
                 Télécharger documents signés
               </Button>
             )}
-            <Button variant="outline">
-              <FileText className="mr-1.5 h-3.5 w-3.5" />
-              Voir documents
-            </Button>
+            {signatures && signatures.documents.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    for (const doc of signatures.documents) {
+                      const res = await api.get(
+                        `/api/documents/${doc.id}/download`,
+                        { responseType: "blob" }
+                      );
+                      const blob = new Blob([res.data], { type: "application/pdf" });
+                      const url = window.URL.createObjectURL(blob);
+                      window.open(url, "_blank");
+                      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                      // Délai pour éviter blocage popup
+                      await new Promise((r) => setTimeout(r, 200));
+                    }
+                  } catch (e) {
+                    console.error("Voir documents erreur:", e);
+                    alert("Erreur lors de l'ouverture des documents");
+                  }
+                }}
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5" />
+                Voir documents
+              </Button>
+            )}
           </div>
         </div>
 
