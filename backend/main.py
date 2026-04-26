@@ -7,7 +7,7 @@ import sys
 
 from config import settings
 from database import engine
-from routes import auth as auth_routes, signatures as signatures_routes
+from routes import auth as auth_routes, signatures as signatures_routes, users
 from routes import sms as sms_routes
 from routes import settings as settings_routes
 from routes import interventions as interventions_routes
@@ -89,3 +89,4 @@ app.include_router(settings_routes.router, prefix="/api/settings", tags=["settin
 app.include_router(calendar_routes.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(documents_routes.router, prefix="/api/documents", tags=["documents"])
 app.include_router(public_signature_routes.router, prefix="/api/public/signature", tags=["public-signature"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
