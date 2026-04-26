@@ -1172,8 +1172,11 @@ function RelancesSection({
     }
   };
 
+  const [_mounted, _setMounted] = useState(false);
+  useEffect(() => { _setMounted(true); }, []);
+
   const formatNextRun = (iso: string | null): string => {
-    if (!iso) return "—";
+    if (!iso || !_mounted) return "—";
     const d = new Date(iso);
     return d.toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   };

@@ -17,6 +17,7 @@ import type {
 import { statusLabel } from "@/lib/format";
 import { InterventionDialog } from "@/components/dashboard/intervention-dialog";
 import { useRouter } from "next/navigation";
+import { useMounted } from "@/hooks/use-mounted";
 
 const STATUS_TABS: { value: InterventionStatus | "all"; label: string }[] = [
   { value: "all", label: "Toutes" },
@@ -73,8 +74,9 @@ export default function DashboardPage() {
   if (!user) return null;
 
   const today = new Date();
-  const dayName = today.toLocaleDateString("fr-FR", { weekday: "long" });
-  const dateStr = today.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const mounted = useMounted();
+  const dayName = (mounted ? today.toLocaleDateString("fr-FR", { weekday: "long" }) : "");
+  const dateStr = (mounted ? today.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "");
 
   // Faux sparklines basés sur les vraies stats (mocked progressivement)
   const sparkInterventions = [40, 50, 35, 60, 45, 70, 80];
