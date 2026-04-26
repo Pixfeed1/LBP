@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
-  Save, Loader2, X, RotateCcw, Check, MessageSquare, PenLine,
-  FileText, Mail, RefreshCw, Bell, Cloud, Users, MapPin, Settings as SettingsIcon,
-  ChevronRight, ChevronLeft, Send,
+  Save, Loader2, X, RotateCcw, Check, MessageSquare, PenLine, FileText, Mail, RefreshCw, Bell, Cloud, Users, MapPin, Settings as SettingsIcon, ChevronRight, ChevronLeft, Send, CheckCircle2,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
@@ -128,6 +126,9 @@ export default function ConfigurationPage() {
     "sms.template_annulation_enabled",
   ].filter((k) => drafts[k] === "true").length;
   const adminEmails = (drafts["notif.admin_emails"] ?? "").split(",").filter(Boolean).length;
+  const relancesEnabled = drafts["relance.scheduler_enabled"] === "true" || drafts["relance.scheduler_enabled"] === undefined;
+  const rappelJ1Hour = drafts["relance.rappel_j1_hour"] ?? "18";
+  const signatureDelayHours = drafts["relance.signature_delay_hours"] ?? "24";
 
   const NAV_ITEMS: NavItem[] = [
     {
@@ -149,7 +150,14 @@ export default function ConfigurationPage() {
       mobileSubtitle: `${enabledTemplatesCount} template${enabledTemplatesCount > 1 ? "s" : ""} actif${enabledTemplatesCount > 1 ? "s" : ""}`,
     },
     { id: "placeholder", label: "Email SMTP", icon: <Mail className="h-3.5 w-3.5" />, group: "Communication", available: false, placeholderKey: "smtp", mobileSubtitle: "Non configuré" },
-    { id: "placeholder", label: "Relances", icon: <RefreshCw className="h-3.5 w-3.5" />, group: "Communication", available: false, placeholderKey: "relances", mobileSubtitle: "3 max · 48h espacé" },
+    {
+      id: "relances",
+      label: "Relances automatiques",
+      icon: <RefreshCw className="h-3.5 w-3.5" />,
+      group: "Communication",
+      available: true,
+      mobileSubtitle: relancesEnabled ? `Rappel J-1 ${rappelJ1Hour}h · Relance ${signatureDelayHours}h` : "Désactivées",
+    },
     {
       id: "notifs",
       label: "Notifications",
@@ -1108,6 +1116,209 @@ function EmailChipsField({ emails, onChange, disabled }: { emails: string[]; onC
         disabled={disabled}
         className="px-2 py-1 text-xs border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-primary/30 min-w-[150px] disabled:opacity-50"
       />
+    </div>
+  );
+}
+
+
+
+
+// ============================================================
+// SECTION : Relances automatiques (scheduler)
+// ============================================================
+
+function RelancesSection({
+  drafts,
+  setDraft,
+  isAdmin,
+}: {
+  drafts: Record<string, string>;
+  setDraft: (key: string, value: string) => void;
+  isAdmin: boolean;
+}) {
+  const [schedulerStatus, setSchedulerStatus] = useState<{ running: boolean; jobs: any[] } | null>(null);
+  const [triggering, setTriggering] = useState<string | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  const schedulerEnabled = drafts["relance.scheduler_enabled"] === "true" || drafts["relance.scheduler_enabled"] === undefined;
+  const signatureEnabled = drafts["relance.signature_enabled"] === "true" || drafts["relance.signature_enabled"] === undefined;
+  const rappelJ1Enabled = drafts["relance.rappel_j1_enabled"] === "true" || drafts["relance.rappel_j1_enabled"] === undefined;
+
+  const loadStatus = async () => {
+    try {
+      const res = await api.get("/api/admin/scheduler/status");
+      setSchedulerStatus(res.data);
+    } catch (err) {
+      console.error("Erreur status scheduler:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const triggerJob = async (jobId: string) => {
+    setTriggering(jobId);
+    setFeedbackMsg(null);
+    try {
+      await api.post(`/api/admin/scheduler/trigger/${jobId}`);
+      setFeedbackMsg(`Job '${jobId}' déclenché — voir logs serveur pour les SMS envoyés`);
+      setTimeout(() => setFeedbackMsg(null), 5000);
+      await loadStatus();
+    } catch (err: any) {
+      setFeedbackMsg(`Erreur: ${err?.response?.data?.detail || "inconnue"}`);
+    } finally {
+      setTriggering(null);
+    }
+  };
+
+  const formatNextRun = (iso: string | null): string => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const rappelJob = schedulerStatus?.jobs.find((j) => j.id === "rappel_j1");
+  const relanceJob = schedulerStatus?.jobs.find((j) => j.id === "relance_signatures");
+
+  return (
+    <div className="space-y-4">
+      {/* Card status global */}
+      <div className={`bg-white border rounded-lg p-4 flex items-center justify-between gap-3 ${schedulerStatus?.running ? "border-emerald-200 bg-emerald-50/30" : "border-amber-200 bg-amber-50/30"}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`relative flex h-2 w-2`}>
+            {schedulerStatus?.running ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </>
+            ) : (
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            )}
+          </span>
+          <div>
+            <div className="text-sm font-medium">
+              {schedulerStatus?.running ? "Scheduler actif" : "Scheduler arrêté"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {schedulerStatus?.running
+                ? `${schedulerStatus.jobs.length} job${schedulerStatus.jobs.length > 1 ? "s" : ""} programmé${schedulerStatus.jobs.length > 1 ? "s" : ""}`
+                : "Active la case ci-dessous puis enregistre"}
+            </div>
+          </div>
+        </div>
+        <Toggle
+          checked={schedulerEnabled}
+          onChange={(v) => setDraft("relance.scheduler_enabled", v ? "true" : "false")}
+          disabled={!isAdmin}
+        />
+      </div>
+
+      {/* Feedback toast */}
+      {feedbackMsg && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5 text-xs text-blue-900 flex items-center gap-2">
+          <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+          {feedbackMsg}
+        </div>
+      )}
+
+      {/* Card 1 : Rappel J-1 */}
+      <ConfigGroup
+        title="Rappel J-1 des rendez-vous"
+        desc="Envoie automatiquement un SMS de rappel aux clients qui ont un rendez-vous le lendemain."
+      >
+        <SettingRow label="Activer le rappel J-1" help="Si désactivé, aucun SMS rappel automatique ne sera envoyé.">
+          <Toggle
+            checked={rappelJ1Enabled}
+            onChange={(v) => setDraft("relance.rappel_j1_enabled", v ? "true" : "false")}
+            disabled={!isAdmin || !schedulerEnabled}
+          />
+        </SettingRow>
+        <SettingRow label="Heure d'envoi" help="À quelle heure (FR) le SMS rappel est envoyé chaque jour.">
+          <InputWithSuffix
+            value={drafts["relance.rappel_j1_hour"] ?? "18"}
+            onChange={(v) => setDraft("relance.rappel_j1_hour", v)}
+            suffix="h FR"
+            disabled={!isAdmin || !schedulerEnabled || !rappelJ1Enabled}
+            type="number"
+            min="0"
+            max="23"
+            className="w-24"
+          />
+        </SettingRow>
+        <SettingRow
+          label="Prochaine exécution"
+          help={schedulerStatus?.running ? "Le scheduler exécutera ce job automatiquement." : "Le scheduler est arrêté."}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-muted-foreground">{formatNextRun(rappelJob?.next_run_time ?? null)}</span>
+            {isAdmin && (
+              <button
+                onClick={() => triggerJob("rappel_j1")}
+                disabled={triggering === "rappel_j1"}
+                className="px-2 py-1 text-xs border border-border rounded-md hover:bg-muted/50 disabled:opacity-50"
+              >
+                {triggering === "rappel_j1" ? "..." : "Tester"}
+              </button>
+            )}
+          </div>
+        </SettingRow>
+      </ConfigGroup>
+
+      {/* Card 2 : Relance signature */}
+      <ConfigGroup
+        title="Relances de signature"
+        desc="Si un client n'a pas signé après X heures, on lui envoie automatiquement un SMS de rappel (jusqu'à N fois)."
+      >
+        <SettingRow label="Activer les relances" help="Si désactivé, aucune relance automatique ne sera envoyée.">
+          <Toggle
+            checked={signatureEnabled}
+            onChange={(v) => setDraft("relance.signature_enabled", v ? "true" : "false")}
+            disabled={!isAdmin || !schedulerEnabled}
+          />
+        </SettingRow>
+        <SettingRow label="Délai entre envois" help="Nombre d'heures à attendre avant la première relance et entre chaque relance.">
+          <InputWithSuffix
+            value={drafts["relance.signature_delay_hours"] ?? "24"}
+            onChange={(v) => setDraft("relance.signature_delay_hours", v)}
+            suffix="heures"
+            disabled={!isAdmin || !schedulerEnabled || !signatureEnabled}
+            type="number"
+            min="1"
+            max="168"
+            className="w-24"
+          />
+        </SettingRow>
+        <SettingRow label="Nombre maximum de relances" help="Au-delà de ce nombre, on arrête de relancer le client.">
+          <InputWithSuffix
+            value={drafts["relance.signature_max_count"] ?? "2"}
+            onChange={(v) => setDraft("relance.signature_max_count", v)}
+            suffix="relances"
+            disabled={!isAdmin || !schedulerEnabled || !signatureEnabled}
+            type="number"
+            min="0"
+            max="10"
+            className="w-24"
+          />
+        </SettingRow>
+        <SettingRow
+          label="Prochaine exécution"
+          help="Le scheduler vérifie toutes les heures s'il y a des signatures à relancer."
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-muted-foreground">{formatNextRun(relanceJob?.next_run_time ?? null)}</span>
+            {isAdmin && (
+              <button
+                onClick={() => triggerJob("relance_signatures")}
+                disabled={triggering === "relance_signatures"}
+                className="px-2 py-1 text-xs border border-border rounded-md hover:bg-muted/50 disabled:opacity-50"
+              >
+                {triggering === "relance_signatures" ? "..." : "Tester"}
+              </button>
+            )}
+          </div>
+        </SettingRow>
+      </ConfigGroup>
     </div>
   );
 }
