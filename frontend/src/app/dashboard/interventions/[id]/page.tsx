@@ -366,24 +366,48 @@ export default function InterventionDetailPage() {
                 Documents signes (telechargeables)
               </p>
               <div className="grid md:grid-cols-3 gap-2">
-                {signatures.documents.map((doc) => (
-                  
-                  <a
-                    key={doc.id}
-                    href={`${process.env.NEXT_PUBLIC_API_URL || "https://api-lesbonsplombiers.pixfeed.net"}/api/documents/${doc.id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 bg-white hover:bg-emerald-100 rounded border border-emerald-200 transition text-sm"
-                  >
-                    <FileText className="h-4 w-4 text-emerald-700" />
-                    <span className="text-emerald-900 truncate">
-                      {doc.type === "proces_verbal" && "Proces-verbal"}
-                      {doc.type === "fiche_travaux" && "Fiche travaux"}
-                      {doc.type === "attestation_tva" && "Attestation TVA"}
-                      {doc.type === "delegation_paiement" && "Delegation"}
-                    </span>
-                  </a>
-                ))}
+                {signatures.documents.map((doc) => {
+                  const labels: Record<string, string> = {
+                    proces_verbal: "Proces-verbal",
+                    fiche_travaux: "Fiche travaux",
+                    attestation_tva: "Attestation TVA",
+                    delegation_paiement: "Delegation",
+                  };
+                  const label = labels[doc.type] || doc.type;
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get(
+                            `/api/documents/${doc.id}/download`,
+                            { responseType: "blob" }
+                          );
+                          const blob = new Blob([res.data], { type: "application/pdf" });
+                          const url = window.URL.createObjectURL(blob);
+                          const newTab = window.open(url, "_blank");
+                          if (!newTab) {
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${label}_${doc.id.slice(0, 8)}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }
+                          setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                        } catch (e) {
+                          console.error("Download error:", e);
+                          alert("Erreur lors du telechargement du PDF");
+                        }
+                      }}
+                      className="flex items-center gap-2 p-2 bg-white hover:bg-emerald-100 rounded border border-emerald-200 transition text-sm cursor-pointer text-left w-full"
+                    >
+                      <FileText className="h-4 w-4 text-emerald-700" />
+                      <span className="text-emerald-900 truncate">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
