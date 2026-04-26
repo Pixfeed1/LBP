@@ -11,6 +11,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
 
+# Marge réservée en bas de page pour le bandeau juridique post-signature (18mm)
+# Voir services/pdf_signing.py pour l'incrustation
+FOOTER_RESERVED_HEIGHT = 18 * 2.83465  # 18mm en points (1mm = 2.83465pt)
+
 ASSETS_DIR = Path("/app/assets")
 SIGNATURE_PATH = ASSETS_DIR / "signature_lbp.jpg"
 LOGO_PATH = ASSETS_DIR / "logo_promultitravaux.jpg"

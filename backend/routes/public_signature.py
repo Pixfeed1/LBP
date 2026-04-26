@@ -249,6 +249,18 @@ async def sign_documents(
     intervention.status = InterventionStatus.SIGNED
     db.commit()
 
+    # Incruster les signatures dans les PDFs (try/except : ne fait pas échouer la signature)
+    try:
+        from services.pdf_signing import sign_intervention_documents
+        sign_result = sign_intervention_documents(db, intervention.id)
+        logger.info(
+            f"📝 PDFs incrustés : {sign_result['signed']}/{sign_result['total']} "
+            f"({sign_result['errors']} erreurs)"
+        )
+    except Exception as e:
+        logger.exception(f"⚠️ Incrustation PDF échouée pour intervention {intervention.id} : {e}")
+        # On continue : la signature en DB reste valide, on pourra rejouer le script rétro
+
     logger.info(
         f"✅ Signature OK : intervention={intervention.id}, "
         f"{signatures_created} docs signés, IP={signer_ip}, hash={hash_sha256[:16]}..."

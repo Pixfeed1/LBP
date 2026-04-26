@@ -13,6 +13,9 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 
 
 # Chemin vers le tampon LBP (à uploader manuellement)
+# Marge réservée en bas de page pour le bandeau juridique post-signature (18mm)
+FOOTER_RESERVED_HEIGHT = 18 * 2.83465  # 18mm en points
+
 SIGNATURE_PATH = Path("/app/assets/signature_lbp.jpg")
 
 
