@@ -58,26 +58,56 @@ DEFAULT_SETTINGS: Dict[str, Dict[str, Any]] = {
         "description": "Cocher 'Travaux conformes' par défaut sur le PV",
     },
 
-    # === Section SMS templates ===
-    "sms.template_signature_initial": {
-        "value": "Bonjour {prenom}, suite a votre intervention par Les Bons Plombiers, merci de signer vos documents : {url}",
+    # === Section SMS templates (5 templates fideles au mockup phase2e) ===
+    "sms.template_initial": {
+        "value": "Bonjour {prenom}, votre intervention LBP du {date} à {heure} est confirmée. Merci de signer les documents nécessaires : {lien}. Pour toute question : 09 71 00 02 11. Les Bons Plombiers",
         "type": SettingType.STRING,
-        "description": "Template du SMS de signature initial. Variables : {prenom}, {nom}, {url}",
+        "description": "SMS initial - envoyé à la création du RDV. Variables : {prenom}, {nom}, {date}, {heure}, {lien}",
     },
-    "sms.template_signature_relance": {
-        "value": "Bonjour {prenom}, n'oubliez pas de signer vos documents Les Bons Plombiers : {url}",
-        "type": SettingType.STRING,
-        "description": "Template du SMS de relance. Variables : {prenom}, {nom}, {url}",
-    },
-    "sms.template_rdv_rappel": {
-        "value": "Rappel : votre intervention Les Bons Plombiers est prevue {date} a {heure}.",
-        "type": SettingType.STRING,
-        "description": "Template du SMS de rappel RDV. Variables : {prenom}, {nom}, {date}, {heure}",
-    },
-    "sms.relance_enabled": {
-        "value": "false",
+    "sms.template_initial_enabled": {
+        "value": "true",
         "type": SettingType.BOOLEAN,
-        "description": "Activer la relance automatique J-1",
+        "description": "Activer le SMS initial",
+    },
+    "sms.template_rappel_j1": {
+        "value": "Rappel : intervention LBP demain {date} à {heure} chez vous. Si pas encore signé : {lien}. Bonne journée. Les Bons Plombiers",
+        "type": SettingType.STRING,
+        "description": "Rappel J-1 - envoyé la veille à 18h. Variables : {prenom}, {date}, {heure}, {lien}",
+    },
+    "sms.template_rappel_j1_enabled": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Activer le rappel J-1",
+    },
+    "sms.template_relance": {
+        "value": "Bonjour {prenom}, il vous reste {nb_docs} document(s) à signer pour votre intervention du {date}. Merci de finaliser : {lien}. LBP",
+        "type": SettingType.STRING,
+        "description": "Relance signature - envoyée si pas signé apres 48h. Variables : {prenom}, {date}, {nb_docs}, {lien}",
+    },
+    "sms.template_relance_enabled": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Activer la relance signature",
+    },
+    "sms.template_deplacement": {
+        "value": "Bonjour {prenom}, votre intervention LBP a été décalée au {date} à {heure}. Motif : {motif}. Documents : {lien}. LBP",
+        "type": SettingType.STRING,
+        "description": "Deplacement RDV - envoye apres modification du RDV. Variables : {prenom}, {date}, {heure}, {motif}, {lien}",
+    },
+    "sms.template_deplacement_enabled": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Activer le SMS de deplacement",
+    },
+    "sms.template_annulation": {
+        "value": "Bonjour {prenom}, votre intervention LBP du {date} est annulée. Pour toute question : 09 71 00 02 11. LBP",
+        "type": SettingType.STRING,
+        "description": "Annulation - envoyé apres annulation cote outil. Variables : {prenom}, {date}",
+    },
+    "sms.template_annulation_enabled": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Activer le SMS d'annulation",
     },
 
     # === Section Notifications ===

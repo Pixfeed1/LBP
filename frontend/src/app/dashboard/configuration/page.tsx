@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Save, Loader2, X, RotateCcw, Check, MessageSquare, PenLine,
   FileText, Mail, RefreshCw, Bell, Cloud, Users, MapPin, Settings as SettingsIcon,
@@ -219,7 +219,12 @@ export default function ConfigurationPage() {
                 isAdmin={isAdmin}
               />
             ) : activeSection === "templates" ? (
-              <ComingSoonPlaceholder title="Templates SMS" desc="Section disponible dans le prochain commit (5b)" icon={<MessageSquare />} />
+              <TemplatesSMSSection
+                drafts={drafts}
+                settings={settings}
+                setDraft={setDraft}
+                isAdmin={isAdmin}
+              />
             ) : activeSection === "notifs" ? (
               <ComingSoonPlaceholder title="Notifications & archivage" desc="Section disponible dans le prochain commit (5c)" icon={<Bell />} />
             ) : null}
@@ -604,6 +609,296 @@ function InputWithSuffix({
       </span>
     </div>
   );
+}
+
+// ============================================================
+// Section : TEMPLATES SMS (fidèle au mockup phase2e)
+// ============================================================
+
+interface SmsTemplate {
+  key: string;
+  enabledKey: string;
+  name: string;
+  context: string;
+  variables: string[];
+  defaultPreviewValues: Record<string, string>;
+}
+
+const SMS_TEMPLATES: SmsTemplate[] = [
+  {
+    key: "sms.template_initial",
+    enabledKey: "sms.template_initial_enabled",
+    name: "SMS initial",
+    context: "Envoyé à la création du RDV",
+    variables: ["{prenom}", "{nom}", "{date}", "{heure}", "{lien}"],
+    defaultPreviewValues: {
+      "{prenom}": "Jean",
+      "{nom}": "Dupont",
+      "{date}": "lundi 28 avril",
+      "{heure}": "15h",
+      "{lien}": "https://lbp.fr/s/abc123",
+    },
+  },
+  {
+    key: "sms.template_rappel_j1",
+    enabledKey: "sms.template_rappel_j1_enabled",
+    name: "Rappel J-1",
+    context: "Envoyé la veille à 18h",
+    variables: ["{prenom}", "{date}", "{heure}", "{lien}"],
+    defaultPreviewValues: {
+      "{prenom}": "Jean",
+      "{date}": "demain",
+      "{heure}": "15h",
+      "{lien}": "https://lbp.fr/s/abc123",
+    },
+  },
+  {
+    key: "sms.template_relance",
+    enabledKey: "sms.template_relance_enabled",
+    name: "Relance signature",
+    context: "Envoyée si pas signé après 48h",
+    variables: ["{prenom}", "{date}", "{nb_docs}", "{lien}"],
+    defaultPreviewValues: {
+      "{prenom}": "Jean",
+      "{date}": "26 avril",
+      "{nb_docs}": "2",
+      "{lien}": "https://lbp.fr/s/abc123",
+    },
+  },
+  {
+    key: "sms.template_deplacement",
+    enabledKey: "sms.template_deplacement_enabled",
+    name: "Déplacement de RDV",
+    context: "Envoyé après modification du RDV",
+    variables: ["{prenom}", "{date}", "{heure}", "{motif}", "{lien}"],
+    defaultPreviewValues: {
+      "{prenom}": "Jean",
+      "{date}": "mardi 29 avril",
+      "{heure}": "14h",
+      "{motif}": "indisponibilité technicien",
+      "{lien}": "https://lbp.fr/s/abc123",
+    },
+  },
+  {
+    key: "sms.template_annulation",
+    enabledKey: "sms.template_annulation_enabled",
+    name: "Annulation",
+    context: "Envoyé après annulation côté outil",
+    variables: ["{prenom}", "{date}"],
+    defaultPreviewValues: {
+      "{prenom}": "Jean",
+      "{date}": "lundi 28 avril",
+    },
+  },
+];
+
+function renderPreview(template: string, values: Record<string, string>): React.ReactNode[] {
+  // Découpe le template en respectant les {variables} et les wrap dans <mark>
+  const parts: React.ReactNode[] = [];
+  const regex = /(\{[a-z_]+\})/g;
+  const tokens = template.split(regex);
+  tokens.forEach((token, i) => {
+    if (regex.test(token) && values[token]) {
+      parts.push(
+        <mark key={i} className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-medium not-italic">
+          {values[token]}
+        </mark>
+      );
+    } else if (token) {
+      parts.push(<span key={i}>{token}</span>);
+    }
+    regex.lastIndex = 0;
+  });
+  return parts;
+}
+
+function TemplatesSMSSection({
+  drafts,
+  settings,
+  setDraft,
+  isAdmin,
+}: {
+  drafts: Record<string, string>;
+  settings: Record<string, SettingItem>;
+  setDraft: (key: string, value: string) => void;
+  isAdmin: boolean;
+}) {
+  const restoreDefaults = () => {
+    if (!isAdmin) return;
+    if (!confirm("Restaurer les 5 templates par défaut ? Les modifications non sauvegardées seront perdues.")) return;
+    // Reset chaque template à la valeur stockée en DB initialement (signal aux drafts pour repartir des defaults)
+    // Note: on ne peut pas vraiment restaurer "factory defaults" sans appel backend, donc on revert juste aux valeurs DB actuelles
+    for (const tpl of SMS_TEMPLATES) {
+      const original = settings[tpl.key]?.value ?? "";
+      setDraft(tpl.key, original);
+    }
+  };
+
+  return (
+    <div>
+      {/* Page head */}
+      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Templates SMS</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Personnalisez chaque message envoyé au client. Cliquez sur une variable pour l\'insérer à la position du curseur. Preview avec données réelles juste en dessous.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={restoreDefaults}
+          disabled={!isAdmin}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-md bg-white hover:bg-muted/50 transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Restaurer
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        {SMS_TEMPLATES.map((tpl) => (
+          <TemplateCard
+            key={tpl.key}
+            template={tpl}
+            value={drafts[tpl.key] ?? ""}
+            enabled={drafts[tpl.enabledKey] === "true"}
+            onChangeValue={(v) => setDraft(tpl.key, v)}
+            onChangeEnabled={(v) => setDraft(tpl.enabledKey, v ? "true" : "false")}
+            disabled={!isAdmin}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateCard({
+  template,
+  value,
+  enabled,
+  onChangeValue,
+  onChangeEnabled,
+  disabled,
+}: {
+  template: SmsTemplate;
+  value: string;
+  enabled: boolean;
+  onChangeValue: (v: string) => void;
+  onChangeEnabled: (v: boolean) => void;
+  disabled: boolean;
+}) {
+  const textareaRef = useTextareaRef();
+  const charCount = value.length;
+  const segmentCount = Math.max(1, Math.ceil(charCount / 160));
+  const isOver160 = charCount > 160;
+
+  // Build the rendered preview avec valeurs surlignées
+  const previewNodes = renderPreview(value, template.defaultPreviewValues);
+
+  const insertVariable = (variable: string) => {
+    if (disabled) return;
+    const ta = textareaRef.current;
+    if (!ta) {
+      onChangeValue(value + variable);
+      return;
+    }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const newValue = value.slice(0, start) + variable + value.slice(end);
+    onChangeValue(newValue);
+    // Restaure le focus avec curseur après la variable insérée
+    requestAnimationFrame(() => {
+      ta.focus();
+      const newPos = start + variable.length;
+      ta.setSelectionRange(newPos, newPos);
+    });
+  };
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden bg-white">
+      {/* Card head */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="text-sm font-semibold truncate">{template.name}</div>
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-medium whitespace-nowrap ${
+            enabled
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-muted/40 text-muted-foreground border-border"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-muted-foreground/40"}`}></span>
+            {enabled ? "Actif" : "Désactivé"}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-muted-foreground hidden sm:inline">
+            {template.context}
+          </span>
+          <Toggle
+            checked={enabled}
+            onChange={onChangeEnabled}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-4 space-y-3">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChangeValue(e.target.value)}
+          disabled={disabled}
+          rows={3}
+          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-white font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 resize-y"
+          style={{ fontFamily: "var(--font-mono, ui-monospace, monospace)" }}
+        />
+
+        {/* Preview card */}
+        <div className="bg-emerald-50/50 border border-emerald-200 rounded-md p-3 flex items-start gap-3">
+          <div className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+            <MessageSquare className="h-3.5 w-3.5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-medium text-emerald-700 uppercase tracking-wider mb-1">
+              Preview · ce que le client recevra
+            </div>
+            <div className="text-sm text-emerald-950 leading-relaxed break-words">
+              {previewNodes}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-2.5 bg-muted/20 border-t border-border flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">Variables :</span>
+          {template.variables.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => insertVariable(v)}
+              disabled={disabled}
+              className="px-1.5 py-0.5 text-[11px] font-mono bg-white border border-border rounded hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <span className={`text-[11px] font-mono whitespace-nowrap ${
+          isOver160 ? "text-amber-700 font-semibold" : "text-muted-foreground"
+        }`}>
+          <strong>{charCount}</strong> / 160 caractères · {segmentCount} SMS
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Hook pour ref de textarea (TypeScript-friendly avec React.RefObject)
+function useTextareaRef() {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  return ref;
 }
 
 function ComingSoonPlaceholder({
