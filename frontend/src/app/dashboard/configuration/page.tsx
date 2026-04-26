@@ -41,7 +41,7 @@ export default function ConfigurationPage() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role === "admin";
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
