@@ -11,6 +11,7 @@ from models.document import DocumentType, DocumentStatus
 from config import settings
 from services.pdf_generation import generate_all_pdfs_for_intervention
 from services.sms_service import send_sms_twilio, build_signature_sms_message
+from services import yousign_service
 
 
 def generate_signature_token() -> str:
@@ -106,7 +107,22 @@ def prepare_signature_workflow(
         client_name = f"{intervention.client_prenom or ''} {intervention.client_nom or ''}".strip()
         if not client_name:
             client_name = "Madame, Monsieur"
-        signature_url = get_signature_url(token)
+        # Si provider Yousign, on remplace l'URL maison par l'URL Yousign
+        if provider == "yousign":
+            try:
+                ys_result = yousign_service.prepare_yousign_signature(intervention, documents)
+                signature_url = ys_result["signature_url"]
+                # Stock l'ID Yousign pour le webhook
+                for doc in documents:
+                    if str(doc.id) in ys_result["yousign_document_ids"]:
+                        doc.yousign_signature_id = ys_result["yousign_signature_request_id"]
+                db.commit()
+                logger.info(f"[YOUSIGN] URL signature obtenue : {signature_url[:60]}...")
+            except Exception as e:
+                logger.error(f"[YOUSIGN] Echec prepare signature : {e}, fallback maison")
+                signature_url = get_signature_url(token)
+        else:
+            signature_url = get_signature_url(token)
         message = build_signature_sms_message(client_name, signature_url)
         sms_result = send_sms_twilio(
             intervention.client_telephone,

@@ -45,6 +45,7 @@ class Document(Base):
     
     # Maison
     signature_provider = Column(String(50), default="maison", nullable=False)  # "maison" ou "yousign"
+    yousign_signature_id = Column(String(255), nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
