@@ -64,6 +64,7 @@ class Intervention(Base):
     user = relationship("User", backref="interventions")
     documents = relationship("Document", back_populates="intervention", cascade="all, delete-orphan")
     signatures = relationship("Signature", back_populates="intervention", cascade="all, delete-orphan")
+    sms_logs = relationship("SmsLog", back_populates="intervention", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Intervention {self.client_nom} {self.client_prenom} - {self.date_rdv.strftime('%d/%m/%Y') if self.date_rdv else 'no date'}>"

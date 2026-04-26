@@ -10,6 +10,7 @@ from models import Intervention, Document, InterventionStatus
 from models.document import DocumentType, DocumentStatus
 from config import settings
 from services.pdf_generation import generate_all_pdfs_for_intervention
+from services.sms_service import send_sms_twilio, build_signature_sms_message
 
 
 def generate_signature_token() -> str:
@@ -98,6 +99,27 @@ def prepare_signature_workflow(
     
     logger.info(f"PDFs : {pdf_result['generated']}/{pdf_result['total']} générés")
     
+    # Envoi du SMS au client
+    sms_sent = False
+    sms_error = None
+    try:
+        client_name = f"{intervention.client_prenom or ''} {intervention.client_nom or ''}".strip()
+        if not client_name:
+            client_name = "Madame, Monsieur"
+        signature_url = get_signature_url(token)
+        message = build_signature_sms_message(client_name, signature_url)
+        sms_result = send_sms_twilio(
+            intervention.client_telephone,
+            message,
+            db=db,
+            intervention_id=intervention.id,
+        )
+        sms_sent = True
+        logger.info(f"SMS envoyé à {intervention.client_telephone} (SID: {sms_result.get('sid')})")
+    except Exception as e:
+        sms_error = str(e)
+        logger.error(f"Échec envoi SMS : {e}")
+
     logger.info(
         f"Signature workflow préparé : intervention={intervention.id}, "
         f"token={token[:10]}..., {len(documents)} documents, provider={provider}"
@@ -110,5 +132,6 @@ def prepare_signature_workflow(
         "expires_at": expires_at,
         "documents_generated": len(documents),
         "documents": documents,
-        "sms_to_send": True,
+        "sms_sent": sms_sent,
+        "sms_error": sms_error,
     }
