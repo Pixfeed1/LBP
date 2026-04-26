@@ -276,7 +276,7 @@ export default function ConfigurationPage() {
             ) : mobileSubpage === "templates" ? (
               <TemplatesSMSSectionMobile drafts={drafts} settings={settings} setDraft={setDraft} isAdmin={isAdmin} />
             ) : mobileSubpage === "notifs" ? (
-              <ComingSoonPlaceholder title="Notifications & archivage" desc="Section disponible dans le prochain commit" icon={<Bell />} />
+              <NotificationsArchivageSection drafts={drafts} setDraft={setDraft} isAdmin={isAdmin} />
             ) : null}
           </main>
         )}
@@ -353,7 +353,7 @@ export default function ConfigurationPage() {
             ) : activeSection === "templates" ? (
               <TemplatesSMSSection drafts={drafts} settings={settings} setDraft={setDraft} isAdmin={isAdmin} />
             ) : activeSection === "notifs" ? (
-              <ComingSoonPlaceholder title="Notifications & archivage" desc="Section disponible dans le prochain commit (5c)" icon={<Bell />} />
+              <NotificationsArchivageSection drafts={drafts} setDraft={setDraft} isAdmin={isAdmin} />
             ) : null}
           </div>
         </div>
@@ -959,6 +959,159 @@ function InputWithSuffix({ value, onChange, suffix, disabled, className, type = 
     </div>
   );
 }
+
+
+// ============================================================
+// SECTION : Notifications & Archivage (5c)
+// ============================================================
+
+function NotificationsArchivageSection({
+  drafts,
+  setDraft,
+  isAdmin,
+}: {
+  drafts: Record<string, string>;
+  setDraft: (key: string, value: string) => void;
+  isAdmin: boolean;
+}) {
+  // Format DB : CSV "email1,email2,email3"
+  const adminEmails = (drafts["notif.admin_emails"] ?? "").split(",").map(e => e.trim()).filter(Boolean);
+
+  const setAdminEmails = (emails: string[]) => {
+    setDraft("notif.admin_emails", emails.join(","));
+  };
+
+  const recapEnabled = drafts["notif.daily_recap_enabled"] === "true";
+  const recapHour = drafts["notif.daily_recap_hour"] ?? "18";
+  const driveEnabled = drafts["archive.gdrive_enabled"] === "true";
+  const driveFolderId = drafts["archive.gdrive_folder_id"] ?? "";
+
+  return (
+    <div className="space-y-4">
+      {/* Group : Destinataires des emails */}
+      <ConfigGroup
+        title="Destinataires des emails"
+        desc="Adresses email qui recevront les notifications administratives. Tapez un email puis Entrée pour ajouter."
+      >
+        <SettingRow
+          label="Notifications administratives"
+          help="Email envoyé pour les signatures reçues, les erreurs SMS, et les alertes système."
+        >
+          <EmailChipsField emails={adminEmails} onChange={setAdminEmails} disabled={!isAdmin} />
+        </SettingRow>
+      </ConfigGroup>
+
+      {/* Group : Récap quotidien */}
+      <ConfigGroup title="Récap quotidien" desc="Email résumé envoyé chaque soir avec les RDV du jour, signatures reçues, en attente, et erreurs.">
+        <SettingRow label="Activer le récap quotidien" help="Si désactivé, aucun email récap ne sera envoyé.">
+          <Toggle
+            checked={recapEnabled}
+            onChange={(v) => setDraft("notif.daily_recap_enabled", v ? "true" : "false")}
+            disabled={!isAdmin}
+          />
+        </SettingRow>
+        <SettingRow label="Heure d'envoi" help="À quelle heure le récap est envoyé chaque jour ouvré (heure FR).">
+          <InputWithSuffix
+            value={recapHour}
+            onChange={(v) => setDraft("notif.daily_recap_hour", v)}
+            suffix="h"
+            disabled={!isAdmin || !recapEnabled}
+            type="number"
+            min="0"
+            max="23"
+            className="w-20"
+          />
+        </SettingRow>
+      </ConfigGroup>
+
+      {/* Group : Archivage Drive (grise, OAuth en attente Kevin) */}
+      <ConfigGroup
+        title="Archivage Google Drive"
+        desc="Sauvegarde automatique des PDFs signés sur le Drive de Kevin. Vous gardez le contrôle de vos documents."
+        last
+      >
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3 flex items-start gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <div className="text-xs text-amber-900">
+            <strong>OAuth Drive bientôt disponible.</strong> Les paramètres ci-dessous seront actifs une fois que Kevin aura connecté son compte Google.
+          </div>
+        </div>
+
+        <div className="opacity-60 pointer-events-none space-y-0">
+          <SettingRow label="Activer l'archivage Drive" help="Si activé, les PDFs signés seront copiés sur le Drive automatiquement.">
+            <Toggle checked={driveEnabled} onChange={() => {}} disabled />
+          </SettingRow>
+          <SettingRow label="Compte Drive connecté" help="Le Drive sur lequel les PDFs seront stockés.">
+            <button className="px-3 py-1.5 text-xs border border-border rounded-md bg-white text-muted-foreground" disabled>
+              Connecter Drive
+            </button>
+          </SettingRow>
+          <SettingRow label="ID dossier de destination" help="ID du dossier Google Drive où les PDFs seront archivés.">
+            <input
+              type="text"
+              value={driveFolderId}
+              onChange={() => {}}
+              placeholder="1A2B3C..."
+              className="px-2 py-1 text-sm border border-border rounded-md bg-white font-mono text-xs w-[200px]"
+              disabled
+            />
+          </SettingRow>
+        </div>
+      </ConfigGroup>
+    </div>
+  );
+}
+
+function EmailChipsField({ emails, onChange, disabled }: { emails: string[]; onChange: (emails: string[]) => void; disabled?: boolean }) {
+  const [input, setInput] = useState("");
+
+  const addEmail = () => {
+    const trimmed = input.trim().toLowerCase();
+    if (!trimmed) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
+    if (emails.includes(trimmed)) {
+      setInput("");
+      return;
+    }
+    onChange([...emails, trimmed]);
+    setInput("");
+  };
+
+  const removeEmail = (e: string) => {
+    onChange(emails.filter((x) => x !== e));
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 max-w-[420px]">
+      {emails.map((e) => (
+        <span key={e} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-primary/10 text-primary border border-primary/20">
+          {e}
+          <button onClick={() => removeEmail(e)} disabled={disabled} className="hover:text-red-600 disabled:opacity-50">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3 w-3">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </span>
+      ))}
+      <input
+        type="email"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }}
+        onBlur={addEmail}
+        placeholder="Ajouter un email..."
+        disabled={disabled}
+        className="px-2 py-1 text-xs border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-primary/30 min-w-[150px] disabled:opacity-50"
+      />
+    </div>
+  );
+}
+
 
 function ComingSoonPlaceholder({ title, desc, icon }: { title: string; desc: string; icon: React.ReactNode }) {
   return (
