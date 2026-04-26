@@ -7,7 +7,8 @@ import sys
 
 from config import settings
 from database import engine
-from routes import auth as auth_routes, signatures as signatures_routes, users
+from routes import auth as auth_routes, signatures as signatures_routes, users, scheduler
+from services.scheduler_service import start_scheduler, stop_scheduler
 from routes import sms as sms_routes
 from routes import settings as settings_routes
 from routes import interventions as interventions_routes
@@ -92,3 +93,4 @@ app.include_router(documents_routes.router, prefix="/api/documents", tags=["docu
 app.include_router(public_signature_routes.router, prefix="/api/public/signature", tags=["public-signature"])
 app.include_router(public_twilio_routes.router, prefix="/api/public/twilio", tags=["public-twilio"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(scheduler.router, prefix="/api/admin/scheduler", tags=["admin-scheduler"])
