@@ -326,3 +326,52 @@ export default function SignaturesPage() {
     </Suspense>
   );
 }
+
+
+// ============================================================
+// MOBILE : Card signature dans la liste
+// ============================================================
+
+function MobileSignatureCard({ sig, onClick }: { sig: SignatureItem; onClick: () => void }) {
+  const fullName = ((sig.client_nom || "") + " " + (sig.client_prenom || "")).trim() || "—";
+  const initials = (((sig.client_prenom || "")[0] || "") + ((sig.client_nom || "")[0] || "")).toUpperCase() || "??";
+
+  const docTypeLabel: Record<string, string> = {
+    proces_verbal: "PV",
+    fiche_travaux: "Fiche travaux",
+    attestation_tva: "Attestation TVA",
+    delegation_paiement: "Delegation",
+  };
+  const docLabel = docTypeLabel[sig.document_type] || sig.document_type;
+
+  const signedAt = sig.signed_at ? new Date(sig.signed_at) : null;
+  const dateStr = signedAt
+    ? signedAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }) + " " + signedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full bg-white border border-border rounded-lg p-3 flex items-start gap-3 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-semibold">
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">{fullName}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+          {docLabel} - {dateStr}
+        </div>
+        {sig.client_ip ? (
+          <div className="text-[10px] font-mono text-muted-foreground mt-1 truncate">
+            IP {sig.client_ip}
+          </div>
+        ) : null}
+      </div>
+      <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+        Signe
+      </span>
+    </button>
+  );
+}
+

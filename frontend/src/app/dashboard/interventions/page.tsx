@@ -247,7 +247,24 @@ function InterventionsPageContent() {
             </div>
           </div>
 
-          <InterventionsTable items={items} loading={loading} />
+          <div className="hidden lg:block">
+            <InterventionsTable items={items} loading={loading} />
+          </div>
+
+          {/* === MOBILE LIST (< lg) === */}
+          <div className="lg:hidden space-y-2">
+            {loading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">
+                Chargement...
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">
+                Aucune intervention
+              </div>
+            ) : (
+              items.map((iv) => <MobileInterventionCard key={iv.id} iv={iv} />)
+            )}
+          </div>
 
           {/* Pagination */}
           {pages > 1 && (
@@ -302,3 +319,63 @@ export default function InterventionsPage() {
     </Suspense>
   );
 }
+
+
+// ============================================================
+// MOBILE : Card intervention dans la liste
+// ============================================================
+
+function MobileInterventionCard({ iv }: { iv: Intervention }) {
+  const router = useRouter();
+  const fullName = ((iv.client_nom || "") + " " + (iv.client_prenom || "")).trim() || "—";
+  const initials = (((iv.client_prenom || "")[0] || "") + ((iv.client_nom || "")[0] || "")).toUpperCase() || "??";
+
+  const dateRdv = iv.date_rdv ? new Date(iv.date_rdv) : null;
+  const dateStr = dateRdv
+    ? dateRdv.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })
+    : "Date a definir";
+  const heureStr = dateRdv
+    ? dateRdv.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  const statusBadge: Record<string, { label: string; classes: string }> = {
+    pending: { label: "En attente", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+    sent: { label: "SMS envoye", classes: "bg-blue-50 text-blue-700 border-blue-200" },
+    signed: { label: "Signe", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    partial: { label: "Partiel", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+    expired: { label: "Expire", classes: "bg-slate-50 text-slate-600 border-slate-200" },
+    cancelled: { label: "Annule", classes: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const badge = statusBadge[iv.status] || { label: iv.status, classes: "bg-muted text-muted-foreground border-border" };
+
+  const montantStr = iv.montant_ttc != null ? (iv.montant_ttc / 100).toFixed(2) + " EUR" : "";
+
+  return (
+    <button
+      onClick={() => router.push("/dashboard/interventions/" + iv.id)}
+      className="w-full bg-white border border-border rounded-lg p-3 flex items-start gap-3 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm font-medium truncate">{fullName}</div>
+          {montantStr ? (
+            <div className="text-xs font-semibold text-primary tabular-nums flex-shrink-0">{montantStr}</div>
+          ) : null}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+          {dateStr}{heureStr ? " - " + heureStr : ""}
+          {iv.client_ville ? " - " + iv.client_ville : ""}
+        </div>
+        <div className="mt-1.5">
+          <span className={"inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border " + badge.classes}>
+            {badge.label}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
