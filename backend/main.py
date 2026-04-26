@@ -33,7 +33,21 @@ async def lifespan(app: FastAPI):
     logger.info("Backend LBP v2 demarrage...")
     logger.info(f"   ENV: {settings.ENV}")
     logger.info(f"   API URL: {settings.API_URL}")
+
+    # Démarrage scheduler relances
+    try:
+        start_scheduler()
+    except Exception as e:
+        logger.error(f"Erreur start_scheduler: {e}")
+
     yield
+
+    # Arrêt scheduler
+    try:
+        stop_scheduler()
+    except Exception:
+        pass
+
     logger.info("Backend LBP v2 arret...")
 
 

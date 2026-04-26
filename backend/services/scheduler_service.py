@@ -105,7 +105,7 @@ def job_rappel_j1():
             and_(
                 Intervention.date_rdv >= tomorrow_start,
                 Intervention.date_rdv < tomorrow_end,
-                Intervention.is_active == "Y",
+                
             )
         ).all()
 
@@ -175,7 +175,7 @@ def job_relance_signatures():
         # Interventions actives avec un envoi initial SMS il y a > delay_hours
         interventions = db.query(Intervention).filter(
             and_(
-                Intervention.is_active == "Y",
+                
                 Intervention.last_sms_sent_at.isnot(None),
                 Intervention.last_sms_sent_at < threshold,
             )
