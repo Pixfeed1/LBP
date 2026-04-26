@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  Save, Loader2, Settings as SettingsIcon, PenLine, MessageSquare,
-  Bell, Cloud, ChevronRight,
+  Save, Loader2, X, RotateCcw, Check, MessageSquare, PenLine,
+  FileText, Mail, RefreshCw, Bell, Cloud, Users, MapPin, Settings as SettingsIcon,
+  ChevronRight,
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
@@ -11,34 +12,40 @@ import { useAuthStore } from "@/stores/auth-store";
 import { api } from "@/lib/api";
 import type { SettingItem } from "@/types/setting";
 
-type SectionId = "signature" | "sms" | "notif" | "archive";
+// ============================================================
+// Types & Constants
+// ============================================================
 
-const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode; description: string }[] = [
-  {
-    id: "signature",
-    label: "Signature",
-    icon: <PenLine className="h-4 w-4" />,
-    description: "Provider, durée du token, mention juridique",
-  },
-  {
-    id: "sms",
-    label: "Templates SMS",
-    icon: <MessageSquare className="h-4 w-4" />,
-    description: "Modèles d'envoi initial, relance, rappel RDV",
-  },
-  {
-    id: "notif",
-    label: "Notifications",
-    icon: <Bell className="h-4 w-4" />,
-    description: "Emails admin, récap quotidien",
-  },
-  {
-    id: "archive",
-    label: "Archivage",
-    icon: <Cloud className="h-4 w-4" />,
-    description: "Sauvegarde Google Drive",
-  },
+type SectionId = "signature" | "templates" | "notifs";
+
+interface NavItem {
+  id: SectionId | "placeholder";
+  label: string;
+  icon: React.ReactNode;
+  group: string;
+  badge?: number;
+  available: boolean;
+  placeholderKey?: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  // Signature group
+  { id: "signature", label: "Signature électronique", icon: <PenLine className="h-3.5 w-3.5" />, group: "Signature", available: true },
+  { id: "placeholder", label: "Documents (PDF)", icon: <FileText className="h-3.5 w-3.5" />, group: "Signature", available: false, placeholderKey: "docs" },
+  // Communication
+  { id: "templates", label: "Templates SMS", icon: <MessageSquare className="h-3.5 w-3.5" />, group: "Communication", available: true, badge: 5 },
+  { id: "placeholder", label: "Email SMTP", icon: <Mail className="h-3.5 w-3.5" />, group: "Communication", available: false, placeholderKey: "smtp" },
+  { id: "placeholder", label: "Relances", icon: <RefreshCw className="h-3.5 w-3.5" />, group: "Communication", available: false, placeholderKey: "relances" },
+  // Système
+  { id: "notifs", label: "Notifications", icon: <Bell className="h-3.5 w-3.5" />, group: "Système", available: true },
+  { id: "placeholder", label: "Archivage Drive", icon: <Cloud className="h-3.5 w-3.5" />, group: "Système", available: false, placeholderKey: "archive" },
+  { id: "placeholder", label: "Équipe", icon: <Users className="h-3.5 w-3.5" />, group: "Système", available: false, placeholderKey: "team", badge: 3 },
+  { id: "placeholder", label: "Coordonnées entreprise", icon: <MapPin className="h-3.5 w-3.5" />, group: "Système", available: false, placeholderKey: "company" },
 ];
+
+// ============================================================
+// Page principale
+// ============================================================
 
 export default function ConfigurationPage() {
   const user = useAuthStore((s) => s.user);
@@ -51,27 +58,28 @@ export default function ConfigurationPage() {
 
   const isAdmin = user?.role === "ADMIN";
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await api.get<SettingItem[]>("/api/settings");
-        const map: Record<string, SettingItem> = {};
-        const draft: Record<string, string> = {};
-        for (const s of res.data) {
-          map[s.key] = s;
-          draft[s.key] = s.value;
-        }
-        setSettings(map);
-        setDrafts(draft);
-      } catch (err) {
-        console.error("Erreur chargement settings:", err);
-      } finally {
-        setLoading(false);
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get<SettingItem[]>("/api/settings");
+      const map: Record<string, SettingItem> = {};
+      const draft: Record<string, string> = {};
+      for (const s of res.data) {
+        map[s.key] = s;
+        draft[s.key] = s.value;
       }
-    })();
-  }, [user]);
+      setSettings(map);
+      setDrafts(draft);
+    } catch (err) {
+      console.error("Erreur chargement settings:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) loadSettings();
+  }, [user, loadSettings]);
 
   if (!user) return null;
 
@@ -79,30 +87,32 @@ export default function ConfigurationPage() {
     setDrafts((d) => ({ ...d, [key]: value }));
   };
 
-  const hasChanges = () => {
-    return Object.keys(drafts).some((k) => drafts[k] !== settings[k]?.value);
+  const dirtyKeysForSection = (prefix: string): string[] =>
+    Object.keys(drafts).filter(
+      (k) => k.startsWith(prefix) && drafts[k] !== settings[k]?.value
+    );
+
+  const dirtyKeysAll = Object.keys(drafts).filter(
+    (k) => drafts[k] !== settings[k]?.value
+  );
+
+  const cancelChanges = () => {
+    const reset: Record<string, string> = {};
+    for (const [key, item] of Object.entries(settings)) {
+      reset[key] = item.value;
+    }
+    setDrafts(reset);
   };
 
-  const handleSave = async (sectionPrefix: string) => {
+  const handleSave = async () => {
+    if (dirtyKeysAll.length === 0) return;
     setSaving(true);
     try {
-      // Ne push que les changements de la section
       const changes: Record<string, string> = {};
-      for (const [key, value] of Object.entries(drafts)) {
-        if (key.startsWith(sectionPrefix) && value !== settings[key]?.value) {
-          changes[key] = value;
-        }
-      }
-
-      if (Object.keys(changes).length === 0) return;
+      for (const k of dirtyKeysAll) changes[k] = drafts[k];
 
       await api.put("/api/settings", { settings: changes });
-
-      // Recharger
-      const res = await api.get<SettingItem[]>("/api/settings");
-      const map: Record<string, SettingItem> = {};
-      for (const s of res.data) map[s.key] = s;
-      setSettings(map);
+      await loadSettings();
       setSavedAt(new Date());
     } catch (err) {
       console.error("Erreur save:", err);
@@ -112,15 +122,34 @@ export default function ConfigurationPage() {
     }
   };
 
+  // Cmd+S / Ctrl+S keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (dirtyKeysAll.length > 0 && isAdmin) handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drafts, settings, isAdmin]);
+
+  const groupedNav: Record<string, NavItem[]> = {};
+  for (const item of NAV_ITEMS) {
+    if (!groupedNav[item.group]) groupedNav[item.group] = [];
+    groupedNav[item.group].push(item);
+  }
+
   return (
     <>
       <Topbar breadcrumb="Configuration" />
 
-      <main className="flex-1 px-5 py-5 max-w-[1200px] w-full mx-auto">
-        <div className="mb-6">
+      <main className="flex-1 px-5 py-5 max-w-[1300px] w-full mx-auto pb-24">
+        <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight">Configuration</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Paramétrage du workflow de signature et des notifications
+            Paramétrage du workflow de signature, des notifications et de l&apos;archivage
           </p>
           {!isAdmin && (
             <div className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
@@ -129,79 +158,126 @@ export default function ConfigurationPage() {
           )}
         </div>
 
-        <div className="grid md:grid-cols-[260px_1fr] gap-5">
-          {/* Sidebar des sections */}
+        <div className="grid md:grid-cols-[240px_1fr] gap-5">
+          {/* Sidebar de configuration */}
           <aside className="space-y-1">
-            {SECTIONS.map((sec) => {
-              const isActive = activeSection === sec.id;
-              return (
-                <button
-                  key={sec.id}
-                  onClick={() => setActiveSection(sec.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-md transition-colors flex items-start gap-2.5 ${
-                    isActive ? "bg-primary/10 text-primary" : "hover:bg-muted/50 text-foreground"
-                  }`}
-                >
-                  <div className={isActive ? "text-primary" : "text-muted-foreground"}>
-                    {sec.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{sec.label}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {sec.description}
-                    </div>
-                  </div>
-                  {isActive && <ChevronRight className="h-3.5 w-3.5 text-primary mt-0.5" />}
-                </button>
-              );
-            })}
+            {Object.entries(groupedNav).map(([groupName, items]) => (
+              <div key={groupName} className="mb-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-3 py-1.5">
+                  {groupName}
+                </div>
+                {items.map((item, idx) => {
+                  const isActive = item.available && activeSection === item.id;
+                  const isDisabled = !item.available;
+                  return (
+                    <button
+                      key={`${groupName}-${idx}`}
+                      onClick={() => {
+                        if (item.available) setActiveSection(item.id as SectionId);
+                      }}
+                      disabled={isDisabled}
+                      className={`w-full text-left px-3 py-2 rounded-md flex items-center gap-2.5 text-sm transition-colors ${
+                        isActive
+                          ? "bg-primary/10 text-primary font-medium"
+                          : isDisabled
+                          ? "text-muted-foreground/50 cursor-not-allowed"
+                          : "hover:bg-muted/50 text-foreground"
+                      }`}
+                    >
+                      <span className={isActive ? "text-primary" : "text-muted-foreground"}>
+                        {item.icon}
+                      </span>
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge !== undefined && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                      {isDisabled && (
+                        <span className="text-[10px] text-muted-foreground/60 italic">bientôt</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </aside>
 
           {/* Contenu */}
-          <div className="bg-white border border-border rounded-lg p-6 min-h-[400px]">
+          <div className="bg-white border border-border rounded-lg min-h-[500px]">
             {loading ? (
-              <div className="flex items-center justify-center py-16">
+              <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : (
-              <>
-                {activeSection === "signature" && (
-                  <SignatureSection
-                    drafts={drafts}
-                    settings={settings}
-                    setDraft={setDraft}
-                    isAdmin={isAdmin}
-                    onSave={() => handleSave("signature.")}
-                    saving={saving}
-                    hasChanges={hasChanges()}
-                  />
-                )}
-                {activeSection === "sms" && (
-                  <PlaceholderSection title="Templates SMS" icon={<MessageSquare className="h-5 w-5" />} />
-                )}
-                {activeSection === "notif" && (
-                  <PlaceholderSection title="Notifications" icon={<Bell className="h-5 w-5" />} />
-                )}
-                {activeSection === "archive" && (
-                  <PlaceholderSection title="Archivage" icon={<Cloud className="h-5 w-5" />} />
-                )}
-              </>
-            )}
+            ) : activeSection === "signature" ? (
+              <SignatureSection
+                drafts={drafts}
+                settings={settings}
+                setDraft={setDraft}
+                isAdmin={isAdmin}
+              />
+            ) : activeSection === "templates" ? (
+              <ComingSoonPlaceholder title="Templates SMS" desc="Section disponible dans le prochain commit (5b)" icon={<MessageSquare />} />
+            ) : activeSection === "notifs" ? (
+              <ComingSoonPlaceholder title="Notifications & archivage" desc="Section disponible dans le prochain commit (5c)" icon={<Bell />} />
+            ) : null}
           </div>
         </div>
-
-        {savedAt && (
-          <div className="fixed bottom-5 right-5 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-md text-sm text-emerald-900 shadow-lg">
-            ✅ Sauvegardé à {savedAt.toLocaleTimeString("fr-FR")}
-          </div>
-        )}
       </main>
+
+      {/* Save bar fixée en bas */}
+      {(dirtyKeysAll.length > 0 || savedAt) && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-[1100px] w-full px-4">
+          <div className="bg-white border border-border rounded-lg shadow-xl px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-xs">
+              {dirtyKeysAll.length > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  {dirtyKeysAll.length} modification{dirtyKeysAll.length > 1 ? "s" : ""} non sauvegardée{dirtyKeysAll.length > 1 ? "s" : ""}
+                </span>
+              ) : savedAt ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Sauvegardé à {savedAt.toLocaleTimeString("fr-FR")}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {dirtyKeysAll.length > 0 && (
+                <button
+                  onClick={cancelChanges}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={!isAdmin || dirtyKeysAll.length === 0 || saving}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+                Enregistrer
+                <kbd className="hidden md:inline-flex items-center gap-0.5 px-1 py-0 text-[9px] bg-white/20 rounded">⌘S</kbd>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 // ============================================================
-// SECTION : SIGNATURE
+// Section : SIGNATURE (fidèle au mockup)
 // ============================================================
 
 function SignatureSection({
@@ -209,189 +285,341 @@ function SignatureSection({
   settings,
   setDraft,
   isAdmin,
-  onSave,
-  saving,
-  hasChanges,
 }: {
   drafts: Record<string, string>;
   settings: Record<string, SettingItem>;
   setDraft: (key: string, value: string) => void;
   isAdmin: boolean;
-  onSave: () => void;
-  saving: boolean;
-  hasChanges: boolean;
 }) {
   const provider = drafts["signature.default_provider"] ?? "maison";
-  const tokenHours = drafts["signature.token_validity_hours"] ?? "168";
-  const consentText = drafts["signature.consent_text"] ?? "lu et approuvé";
-  const logementDefault = drafts["signature.logement_default_2_ans"] ?? "Y";
-
-  const sectionChanged = Object.keys(drafts)
-    .filter((k) => k.startsWith("signature."))
-    .some((k) => drafts[k] !== settings[k]?.value);
+  const tokenDays = drafts["signature.token_validity_days"] ?? "30";
+  const legalMention = drafts["signature.legal_mention"] ?? "";
+  const singleUseToken = drafts["signature.single_use_token"] === "true";
+  const requireHandwritten = drafts["signature.require_handwritten_mention"] === "true";
+  const logementDefault = drafts["pv.default_logement_2_ans"] ?? "plus_de_2_ans";
+  const travauxConformes = drafts["pv.default_travaux_conformes"] === "true";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 pb-3 border-b border-border">
-        <PenLine className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold">Signature électronique</h2>
+    <div>
+      {/* Page head */}
+      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Signature électronique</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Choisissez votre provider de signature et configurez les paramètres légaux. Le switch entre maison et Yousign est instantané : aucune migration de données nécessaire.
+          </p>
+        </div>
+        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-medium whitespace-nowrap ${
+          provider === "maison"
+            ? "bg-primary/5 text-primary border-primary/20"
+            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            provider === "maison" ? "bg-primary" : "bg-emerald-500"
+          }`}></span>
+          Mode {provider === "maison" ? "Maison" : "Yousign"} actif
+        </span>
       </div>
 
-      {/* Provider */}
-      <div className="space-y-2">
-        <label className="block">
-          <div className="text-sm font-medium mb-1">Provider de signature</div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Détermine le flow utilisé après envoi du SMS au client.
-          </p>
-          <div className="grid grid-cols-2 gap-3 max-w-md">
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setDraft("signature.default_provider", "maison")}
-              className={`p-3 rounded-lg border-2 text-left transition-colors disabled:opacity-50 ${
-                provider === "maison"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              }`}
-            >
-              <div className="text-sm font-semibold">🏠 Maison</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Page web LBP avec canvas + horodatage + IP
-              </div>
-            </button>
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setDraft("signature.default_provider", "yousign")}
-              className={`p-3 rounded-lg border-2 text-left transition-colors disabled:opacity-50 ${
-                provider === "yousign"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              }`}
-            >
-              <div className="text-sm font-semibold">📝 Yousign</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                API Yousign (eIDAS, certificat qualifié)
-              </div>
-            </button>
-          </div>
-        </label>
-      </div>
+      {/* Group : Provider */}
+      <ConfigGroup
+        title="Provider de signature"
+        desc='Le mode "Maison" est gratuit et inclus. Yousign offre un niveau de preuve renforcé (eIDAS simple) pour ~1€ / signature.'
+      >
+        <div className="grid md:grid-cols-2 gap-3 mt-3">
+          <ProviderCard
+            name="Maison"
+            desc="Signature électronique simple, gratuite, intégrée à l'outil."
+            features={[
+              "Canvas + horodatage UTC",
+              "Hash SHA-256 + IP + user-agent",
+              "Cartouche de preuve incrusté",
+              "Aucun coût par signature",
+            ]}
+            selected={provider === "maison"}
+            disabled={!isAdmin}
+            onSelect={() => setDraft("signature.default_provider", "maison")}
+          />
+          <ProviderCard
+            name="Yousign"
+            desc="Signature qualifiée avec preuves légales renforcées eIDAS."
+            features={[
+              "Conforme eIDAS (Niveau Simple)",
+              "Preuves d'archivage 10 ans",
+              "Vérification SMS OTP",
+              "~1 € par signature",
+            ]}
+            selected={provider === "yousign"}
+            disabled={!isAdmin}
+            onSelect={() => setDraft("signature.default_provider", "yousign")}
+          />
+        </div>
+      </ConfigGroup>
 
-      {/* Durée validité token */}
-      <div className="space-y-2 max-w-md">
-        <label className="block">
-          <div className="text-sm font-medium mb-1">Durée de validité du lien</div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Après ce délai, le client devra demander un nouveau lien.
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="1"
-              max="720"
-              disabled={!isAdmin}
-              value={tokenHours}
-              onChange={(e) => setDraft("signature.token_validity_hours", e.target.value)}
-              className="w-24 px-3 py-1.5 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-            />
-            <span className="text-sm text-muted-foreground">
-              heures ({Math.round((parseInt(tokenHours, 10) || 0) / 24)} jours)
-            </span>
-          </div>
-        </label>
-      </div>
+      {/* Group : Paramètres */}
+      <ConfigGroup title="Paramètres du lien de signature">
+        <SettingRow
+          label="Durée de validité du lien"
+          help='Combien de temps après son envoi le lien reste utilisable. Au-delà, le client doit cliquer sur "Demander un nouveau lien".'
+        >
+          <InputWithSuffix
+            value={tokenDays}
+            onChange={(v) => setDraft("signature.token_validity_days", v)}
+            disabled={!isAdmin}
+            suffix="jours"
+            type="number"
+            min="1"
+            max="365"
+            className="w-32"
+          />
+        </SettingRow>
 
-      {/* Mention manuscrite */}
-      <div className="space-y-2 max-w-md">
-        <label className="block">
-          <div className="text-sm font-medium mb-1">Mention manuscrite obligatoire</div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Le client doit retaper exactement cette phrase au-dessus de sa signature.
-          </p>
+        <SettingRow
+          label="Mention de signature obligatoire"
+          help="La phrase que le client doit voir avant de signer. Apparaît dans le cartouche de preuve."
+        >
           <input
             type="text"
+            value={legalMention}
+            onChange={(e) => setDraft("signature.legal_mention", e.target.value)}
             disabled={!isAdmin}
-            value={consentText}
-            onChange={(e) => setDraft("signature.consent_text", e.target.value)}
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+            className="w-72 px-3 py-1.5 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           />
-        </label>
-      </div>
+        </SettingRow>
 
-      {/* Logement +2 ans par défaut */}
-      <div className="space-y-2">
-        <label className="block">
-          <div className="text-sm font-medium mb-1">Ancienneté logement par défaut</div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Pour la TVA réduite (10% sur logements de plus de 2 ans).
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setDraft("signature.logement_default_2_ans", "Y")}
-              className={`px-3 py-1.5 text-sm rounded-md border transition-colors disabled:opacity-50 ${
-                logementDefault === "Y"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-white border-border hover:bg-muted/40"
-              }`}
-            >
-              Plus de 2 ans (TVA 10%)
-            </button>
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setDraft("signature.logement_default_2_ans", "N")}
-              className={`px-3 py-1.5 text-sm rounded-md border transition-colors disabled:opacity-50 ${
-                logementDefault === "N"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-white border-border hover:bg-muted/40"
-              }`}
-            >
-              Moins de 2 ans (TVA 20%)
-            </button>
-          </div>
-        </label>
-      </div>
-
-      {/* Actions */}
-      <div className="pt-4 border-t border-border flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {sectionChanged ? "⚠️ Modifications non enregistrées" : "Aucune modification"}
-        </p>
-        <button
-          onClick={onSave}
-          disabled={!isAdmin || !sectionChanged || saving}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <SettingRow
+          label="Renvoyer un lien à usage unique"
+          help="Chaque token est invalidé après une signature. Recommandé pour la sécurité."
         >
-          {saving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Save className="h-3.5 w-3.5" />
-          )}
-          Enregistrer
-        </button>
-      </div>
+          <Toggle
+            checked={singleUseToken}
+            onChange={(v) => setDraft("signature.single_use_token", v ? "true" : "false")}
+            disabled={!isAdmin}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Demander la mention manuscrite"
+          help='Le client doit retaper "Bon pour accord" en plus de signer. Plus de friction mais preuve renforcée.'
+        >
+          <Toggle
+            checked={requireHandwritten}
+            onChange={(v) => setDraft("signature.require_handwritten_mention", v ? "true" : "false")}
+            disabled={!isAdmin}
+          />
+        </SettingRow>
+      </ConfigGroup>
+
+      {/* Group : Procès-verbal */}
+      <ConfigGroup
+        title="Procès-verbal · valeurs par défaut"
+        desc="Pré-remplissages automatiques pour le PV de réception. Modifiable par intervention si besoin."
+        last
+      >
+        <SettingRow
+          label="Ancienneté du logement par défaut"
+          help="Coche automatiquement la case correspondante du PV. Affecte le calcul de TVA."
+        >
+          <select
+            value={logementDefault}
+            onChange={(e) => setDraft("pv.default_logement_2_ans", e.target.value)}
+            disabled={!isAdmin}
+            className="px-3 py-1.5 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 min-w-[200px]"
+          >
+            <option value="plus_de_2_ans">Plus de 2 ans</option>
+            <option value="moins_de_2_ans">Moins de 2 ans</option>
+            <option value="ask_each">Demander à chaque intervention</option>
+          </select>
+        </SettingRow>
+
+        <SettingRow
+          label="Cocher 'Travaux conformes' par défaut"
+          help="Le client peut décocher s'il y a réserve. Évite l'oubli côté client."
+        >
+          <Toggle
+            checked={travauxConformes}
+            onChange={(v) => setDraft("pv.default_travaux_conformes", v ? "true" : "false")}
+            disabled={!isAdmin}
+          />
+        </SettingRow>
+      </ConfigGroup>
     </div>
   );
 }
 
-function PlaceholderSection({ title, icon }: { title: string; icon: React.ReactNode }) {
+// ============================================================
+// Composants UI réutilisables
+// ============================================================
+
+function ConfigGroup({
+  title,
+  desc,
+  children,
+  last = false,
+}: {
+  title: string;
+  desc?: string;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 pb-3 border-b border-border">
-        <div className="text-primary">{icon}</div>
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <div className={last ? "px-6 py-5" : "px-6 py-5 border-b border-border"}>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {desc && <p className="text-xs text-muted-foreground mt-1 max-w-2xl">{desc}</p>}
       </div>
-      <div className="py-12 text-center">
-        <SettingsIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Section en cours de développement</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
-          Disponible dans le prochain commit
-        </p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function SettingRow({
+  label,
+  help,
+  children,
+}: {
+  label: string;
+  help?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/40 last:border-0">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        {help && <div className="text-xs text-muted-foreground mt-0.5 max-w-xl">{help}</div>}
       </div>
+      <div className="flex-shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function ProviderCard({
+  name,
+  desc,
+  features,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  name: string;
+  desc: string;
+  features: string[];
+  selected: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className={`text-left p-4 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+        selected
+          ? "border-primary bg-primary/[0.02] ring-2 ring-primary/10"
+          : "border-border hover:border-primary/40 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-base font-semibold">{name}</div>
+        {selected && (
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary">
+            <Check className="h-3 w-3 text-primary-foreground" strokeWidth={3} />
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">{desc}</p>
+      <div className="space-y-1.5">
+        {features.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 text-xs">
+            <Check className="h-3 w-3 text-emerald-600 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
+            <span className="text-foreground/80">{f}</span>
+          </div>
+        ))}
+      </div>
+    </button>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+        checked ? "bg-primary" : "bg-muted-foreground/30"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-[18px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+function InputWithSuffix({
+  value,
+  onChange,
+  suffix,
+  disabled,
+  className,
+  type = "text",
+  min,
+  max,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  suffix: string;
+  disabled?: boolean;
+  className?: string;
+  type?: string;
+  min?: string;
+  max?: string;
+}) {
+  return (
+    <div className={`inline-flex items-center border border-border rounded-md bg-white overflow-hidden ${className ?? ""}`}>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        min={min}
+        max={max}
+        className="flex-1 px-2 py-1.5 text-sm bg-transparent focus:outline-none disabled:opacity-50 min-w-0"
+      />
+      <span className="px-2 py-1.5 text-xs text-muted-foreground bg-muted/30 border-l border-border whitespace-nowrap">
+        {suffix}
+      </span>
+    </div>
+  );
+}
+
+function ComingSoonPlaceholder({
+  title,
+  desc,
+  icon,
+}: {
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+      <div className="text-muted-foreground/40 mb-4 [&>svg]:h-12 [&>svg]:w-12">{icon}</div>
+      <h3 className="text-base font-semibold mb-1">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-sm">{desc}</p>
     </div>
   );
 }

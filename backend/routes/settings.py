@@ -26,20 +26,36 @@ DEFAULT_SETTINGS: Dict[str, Dict[str, Any]] = {
         "type": SettingType.STRING,
         "description": "Provider de signature par défaut (maison ou yousign)",
     },
-    "signature.token_validity_hours": {
-        "value": "168",  # 7 jours
+    "signature.token_validity_days": {
+        "value": "30",
         "type": SettingType.INTEGER,
-        "description": "Durée de validité du token de signature en heures",
+        "description": "Durée de validité du lien de signature en jours",
     },
-    "signature.consent_text": {
-        "value": "lu et approuvé",
+    "signature.legal_mention": {
+        "value": "Bon pour accord — signé le {date}",
         "type": SettingType.STRING,
-        "description": "Mention juridique manuscrite que le client doit retaper",
+        "description": "Mention de signature obligatoire affichée au client",
     },
-    "signature.logement_default_2_ans": {
-        "value": "Y",
+    "signature.single_use_token": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Lien à usage unique (invalidé après signature)",
+    },
+    "signature.require_handwritten_mention": {
+        "value": "false",
+        "type": SettingType.BOOLEAN,
+        "description": "Demander au client de retaper la mention manuscrite",
+    },
+    # === PV par défaut ===
+    "pv.default_logement_2_ans": {
+        "value": "plus_de_2_ans",
         "type": SettingType.STRING,
-        "description": "Logement plus de 2 ans par défaut (Y/N) pour TVA réduite",
+        "description": "Ancienneté logement par defaut (plus_de_2_ans, moins_de_2_ans, ask_each)",
+    },
+    "pv.default_travaux_conformes": {
+        "value": "true",
+        "type": SettingType.BOOLEAN,
+        "description": "Cocher 'Travaux conformes' par défaut sur le PV",
     },
 
     # === Section SMS templates ===
