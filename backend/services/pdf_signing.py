@@ -36,22 +36,29 @@ from models.document import DocumentType, DocumentStatus
 # Si rendu incorrect → ajuster ici, relancer le script rétro (idempotent).
 
 SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
-    # PV (généré ReportLab) : signature client = bas-gauche, dernière page
-    # Sous le label "Date et Signature du Client"
+    # PV (généré ReportLab) : signature client = sous "Date et Signature du Client"
+    # Ancre trouvée à x=51, y=471 (1ere occurrence). 12pt sous le label.
     "proces_verbal": {
         "page": 0,
-        "x": 51,        # MARGIN_L = 18mm = 51pt
-        "y": 230,       # ~après les 2 blocs signature
+        "x": 51,                                        # fallback si ancre introuvable
+        "y": 483,                                       # 12pt sous l'ancre y=471
         "width": 130,
         "height": 50,
+        "fallback_search": "Date et Signature du Client",
+        "search_offset_x": 0,
+        "search_offset_y": 12,                          # 12pt sous le label
     },
-    # Fiche travaux (généré ReportLab) : signature client = bas-droite
+    # Fiche travaux (généré ReportLab) : signature client = sous "Date et Signature du Client"
+    # Ancre trouvée à x=374, y=513. Signature placée 15pt sous ce label.
     "fiche_travaux": {
         "page": 0,
-        "x": 380,       # right_sig_x = PAGE_W - MARGIN_R - 60mm
-        "y": 100,
+        "x": 374,                                       # fallback si ancre introuvable
+        "y": 525,                                       # 12pt sous l'ancre
         "width": 130,
         "height": 50,
+        "fallback_search": "Date et Signature du Client",
+        "search_offset_x": 0,
+        "search_offset_y": 12,                          # 12pt sous le label
     },
     # Attestation TVA (template externe rempli PyMuPDF)
     # Ancre : "Fait à" + offset

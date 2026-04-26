@@ -225,12 +225,17 @@ def generate_proces_verbal_pdf(client_data, output_path):
 
     cb_size = 4 * mm
 
+    # Forcer les 2 rangées à avoir la même hauteur (sinon la 2e est plus petite)
+    # Hauteur calculée pour accueillir le texte le plus long (txt1 = 3 lignes environ)
+    ROW_H = 16 * mm
+
     box_table = Table(
         [
             [Paragraph("", box_style), Paragraph(txt1, box_style)],
             [Paragraph("", box_style), Paragraph(txt2, box_style)],
         ],
         colWidths=[12 * mm, CONTENT_W - 12 * mm],
+        rowHeights=[ROW_H, ROW_H],   # ⬅ hauteurs identiques forcées
     )
     box_table.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, colors.black),
