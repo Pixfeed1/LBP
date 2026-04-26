@@ -14,6 +14,7 @@ from routes import interventions as interventions_routes
 from routes import calendar as calendar_routes
 from routes import documents as documents_routes
 from routes import public_signature as public_signature_routes
+from routes import public_twilio as public_twilio_routes
 
 
 # === Logs ===
@@ -89,4 +90,5 @@ app.include_router(settings_routes.router, prefix="/api/settings", tags=["settin
 app.include_router(calendar_routes.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(documents_routes.router, prefix="/api/documents", tags=["documents"])
 app.include_router(public_signature_routes.router, prefix="/api/public/signature", tags=["public-signature"])
+app.include_router(public_twilio_routes.router, prefix="/api/public/twilio", tags=["public-twilio"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])

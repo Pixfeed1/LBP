@@ -79,7 +79,9 @@ def send_sms_twilio(
         resp = requests.post(
             f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
             auth=(account_sid, auth_token),
-            data={"From": from_number, "To": to_normalized, "Body": message},
+            data={"From": from_number, "To": to_normalized, "Body": message,
+"StatusCallback": os.getenv("TWILIO_STATUS_CALLBACK_URL", ""),
+},
             timeout=15,
         )
         resp.raise_for_status()
