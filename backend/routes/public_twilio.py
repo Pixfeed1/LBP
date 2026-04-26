@@ -60,8 +60,14 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
 
     if auth_token and twilio_signature:
         validator = RequestValidator(auth_token)
-        url = str(request.url)
+        # IMPORTANT : derriere nginx/proxy, request.url contient l'URL interne (172.21.0.10).
+        # Twilio a signe avec l'URL publique externe. On utilise la var d'env qui est
+        # exactement la meme URL que Twilio a recue dans StatusCallback.
+        public_url = os.getenv("TWILIO_STATUS_CALLBACK_URL", "").strip()
+        url = public_url or str(request.url)
         is_valid = validator.validate(url, payload, twilio_signature)
+        if not is_valid:
+            logger.debug(f"[TWILIO_WEBHOOK] Validation echec - URL utilisee: {url}")
         if not is_valid:
             logger.warning(f"[TWILIO_WEBHOOK] Signature invalide pour SID={message_sid}, ignoré")
             raise HTTPException(403, "Signature Twilio invalide")
