@@ -247,7 +247,19 @@ function DocumentsPageContent() {
         </div>
 
         {/* Filtres + table */}
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        {/* === MOBILE LIST === */}
+          <div className="lg:hidden space-y-2 mb-4">
+            {loading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">Chargement...</div>
+            ) : items.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">Aucun document</div>
+            ) : (
+              items.map((doc) => <MobileDocCard key={doc.id} doc={doc} />)
+            )}
+          </div>
+
+          {/* === DESKTOP TABLE === */}
+          <div className="hidden lg:block bg-white border border-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -481,3 +493,88 @@ export default function DocumentsPage() {
     </Suspense>
   );
 }
+
+
+// ============================================================
+// MOBILE : Card document dans la liste
+// ============================================================
+
+function MobileDocCard({ doc }: { doc: DocumentItem }) {
+  const router = useRouter();
+
+  const docTypeLabel: Record<string, string> = {
+    proces_verbal: "Proces-verbal",
+    fiche_travaux: "Fiche travaux",
+    attestation_tva: "Attestation TVA",
+    delegation_paiement: "Delegation paiement",
+  };
+  const typeStr = docTypeLabel[doc.document_type] || doc.document_type;
+
+  const isSigned = doc.status === "signed";
+  const statusBadge: Record<string, { label: string; classes: string }> = {
+    draft: { label: "Brouillon", classes: "bg-slate-50 text-slate-600 border-slate-200" },
+    sent: { label: "Envoye", classes: "bg-blue-50 text-blue-700 border-blue-200" },
+    signed: { label: "Signe", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    expired: { label: "Expire", classes: "bg-slate-50 text-slate-600 border-slate-200" },
+  };
+  const badge = statusBadge[doc.status] || { label: doc.status, classes: "bg-muted text-muted-foreground border-border" };
+
+  const fullName = ((doc.client_nom || "") + " " + (doc.client_prenom || "")).trim() || "—";
+
+  const dateStr = doc.created_at
+    ? new Date(doc.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    : "—";
+
+  const handleDownload = async function(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const res = await api.get("/api/documents/" + doc.id + "/download", { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(function() { window.URL.revokeObjectURL(url); }, 60000);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Erreur ouverture PDF");
+    }
+  };
+
+  return (
+    <div className="w-full bg-white border border-border rounded-lg p-3 flex items-start gap-3">
+      <div className={"flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center text-[10px] font-bold " + (isSigned ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground")}>
+        PDF
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm font-medium truncate">{typeStr}</div>
+          <span className={"flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border " + badge.classes}>
+            {badge.label}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+          {fullName} - {dateStr}
+        </div>
+        <div className="flex items-center gap-2 mt-1.5">
+          <button
+            onClick={handleDownload}
+            className="text-[11px] text-primary hover:underline"
+          >
+            Voir le PDF
+          </button>
+          {doc.intervention_id ? (
+            <>
+              <span className="text-[11px] text-muted-foreground">|</span>
+              <button
+                onClick={() => router.push("/dashboard/interventions/" + doc.intervention_id)}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Intervention
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+

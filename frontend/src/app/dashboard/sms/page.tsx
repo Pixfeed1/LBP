@@ -199,7 +199,19 @@ function SmsPageContent() {
         </div>
 
         {/* Filtres + table */}
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        {/* === MOBILE LIST === */}
+          <div className="lg:hidden space-y-2 mb-4">
+            {loading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">Chargement...</div>
+            ) : items.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground bg-white border border-border rounded-lg">Aucun SMS</div>
+            ) : (
+              items.map((sms) => <MobileSmsCard key={sms.id} sms={sms} onClick={() => setSelectedSms(sms)} />)
+            )}
+          </div>
+
+          {/* === DESKTOP TABLE === */}
+          <div className="hidden lg:block bg-white border border-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -448,3 +460,62 @@ export default function SmsPage() {
     </Suspense>
   );
 }
+
+
+// ============================================================
+// MOBILE : Card SMS dans la liste
+// ============================================================
+
+function MobileSmsCard({ sms, onClick }: { sms: SmsItem; onClick: () => void }) {
+  const sentAt = sms.sent_at ? new Date(sms.sent_at) : null;
+  const dateStr = sentAt
+    ? sentAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }) + " " + sentAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  const statusBadge: Record<string, { label: string; classes: string }> = {
+    pending: { label: "En attente", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+    sent: { label: "Envoye", classes: "bg-blue-50 text-blue-700 border-blue-200" },
+    delivered: { label: "Delivre", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    failed: { label: "Echec", classes: "bg-red-50 text-red-700 border-red-200" },
+    undelivered: { label: "Non delivre", classes: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const badge = statusBadge[sms.status] || { label: sms.status, classes: "bg-muted text-muted-foreground border-border" };
+
+  const typeLabel: Record<string, string> = {
+    signature_initial: "Initial",
+    signature_relance: "Relance",
+    rdv_rappel: "Rappel J-1",
+    deplacement: "Deplacement",
+    annulation: "Annulation",
+    test: "Test",
+  };
+  const typeStr = typeLabel[sms.sms_type] || sms.sms_type;
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full bg-white border border-border rounded-lg p-3 flex items-start gap-3 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-sm font-medium font-mono truncate">{sms.phone || "—"}</div>
+          <span className={"flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border " + badge.classes}>
+            {badge.label}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+          {typeStr} - {dateStr}
+        </div>
+        {sms.message ? (
+          <div className="text-[11px] text-foreground/70 mt-1 line-clamp-2 italic">
+            "{sms.message.slice(0, 80)}{sms.message.length > 80 ? "..." : ""}"
+          </div>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
