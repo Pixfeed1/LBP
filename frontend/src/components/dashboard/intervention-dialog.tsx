@@ -32,11 +32,11 @@ const schema = z.object({
   description_travaux: z.string().optional(),
   montant_devis_ht: z.coerce.number().min(0).optional(),
   montant_devis_ttc: z.coerce.number().min(0).optional(),
-  logement_plus_2_ans: z.enum(["Y", "N"]).default("Y"),
+  logement_plus_2_ans: z.enum(["Y", "N"]),
   status: z.enum(["pending", "sent", "signed", "partial", "expired", "cancelled"]).optional(),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.input<typeof schema>;
 
 interface Props {
   open: boolean;
@@ -118,8 +118,8 @@ export function InterventionDialog({ open, onClose, onSaved, intervention }: Pro
         heure_rdv: data.heure_rdv || undefined,
         duree_estimee: data.duree_estimee || undefined,
         description_travaux: data.description_travaux || undefined,
-        montant_devis_ht: data.montant_devis_ht ? Math.round(data.montant_devis_ht * 100) : undefined,
-        montant_devis_ttc: data.montant_devis_ttc ? Math.round(data.montant_devis_ttc * 100) : undefined,
+        montant_devis_ht: data.montant_devis_ht ? Math.round(Number(data.montant_devis_ht) * 100) : undefined,
+        montant_devis_ttc: data.montant_devis_ttc ? Math.round(Number(data.montant_devis_ttc) * 100) : undefined,
         logement_plus_2_ans: data.logement_plus_2_ans,
         date_rdv: new Date(`${data.date_rdv}T${data.heure_rdv?.replace("h", ":") || "09:00"}:00`).toISOString(),
       };

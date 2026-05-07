@@ -508,7 +508,7 @@ function MobileDocCard({ doc }: { doc: DocumentItem }) {
     attestation_tva: "Attestation TVA",
     delegation_paiement: "Delegation paiement",
   };
-  const typeStr = docTypeLabel[doc.document_type] || doc.document_type;
+  const typeStr = docTypeLabel[doc.type] || doc.type;
 
   const isSigned = doc.status === "signed";
   const statusBadge: Record<string, { label: string; classes: string }> = {

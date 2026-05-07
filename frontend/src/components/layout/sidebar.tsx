@@ -7,19 +7,27 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 
-const NAV_MAIN = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  count?: number | null;
+  alert?: number | string | null;
+}
+
+const NAV_MAIN: NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/dashboard/interventions", label: "Interventions", icon: FileText, count: null },
   { href: "/dashboard/calendrier", label: "Synchro Calendar", icon: CalendarSync },
   { href: "/dashboard/signatures", label: "Signatures", icon: PenLine, alert: null },
 ];
 
-const NAV_ACTIVITY = [
+const NAV_ACTIVITY: NavItem[] = [
   { href: "/dashboard/documents", label: "Documents signés", icon: Files },
   { href: "/dashboard/sms", label: "SMS envoyés", icon: MessageSquare },
 ];
 
-const NAV_SETTINGS = [
+const NAV_SETTINGS: NavItem[] = [
   { href: "/dashboard/configuration", label: "Configuration", icon: Settings },
   { href: "/dashboard/equipe", label: "Équipe", icon: Users },
 ];

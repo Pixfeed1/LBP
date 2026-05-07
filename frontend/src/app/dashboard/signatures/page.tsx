@@ -362,9 +362,9 @@ function MobileSignatureCard({ sig, onClick }: { sig: SignatureItem; onClick: ()
         <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
           {docLabel} - {dateStr}
         </div>
-        {sig.client_ip ? (
+        {sig.signer_ip ? (
           <div className="text-[10px] font-mono text-muted-foreground mt-1 truncate">
-            IP {sig.client_ip}
+            IP {sig.signer_ip}
           </div>
         ) : null}
       </div>

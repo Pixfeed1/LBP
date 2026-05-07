@@ -38,3 +38,35 @@ export interface SignatureStats {
   interventions_total: number;
   signature_rate: number;
 }
+
+/* Signature individuelle dans la liste retournee par /api/interventions/{id}/signatures */
+export interface SignatureItem {
+  id: string;
+  document_id: string;
+  document_type: string;
+  status: string;
+  signed_at: string | null;
+  signer_ip: string | null;
+  signer_user_agent: string | null;
+  signer_name_typed: string | null;
+  signer_consent_text: string | null;
+  hash_sha256: string | null;
+  signature_image: string | null;
+  provider: string;
+}
+
+/* Document associe a une signature */
+export interface SignatureDocument {
+  id: string;
+  type: string;
+  status: string;
+  signed_at: string | null;
+}
+
+/* Reponse complete de /api/interventions/{id}/signatures */
+export interface SignatureData {
+  intervention_id: string;
+  is_signed: boolean;
+  signatures: SignatureItem[];
+  documents: SignatureDocument[];
+}

@@ -19,6 +19,7 @@ import {
   formatPrice, formatDate, formatDateShort, statusLabel,
 } from "@/lib/format";
 import type { Intervention, InterventionStatus } from "@/types/intervention";
+import type { SignatureData } from "@/types/signature";
 
 const BADGE_CLASSES: Record<InterventionStatus, string> = {
   pending: "badge-pending",
@@ -650,11 +651,11 @@ function MobileInterventionDetail({
               <div className="text-sm leading-relaxed">
                 {intervention.description_travaux || "—"}
               </div>
-              {intervention.montant_ttc != null && (
+              {intervention.montant_devis_ttc != null && (
                 <div className="mt-3 pt-3 border-t border-border/40 flex items-baseline justify-between">
                   <span className="text-xs text-muted-foreground">Montant TTC</span>
                   <span className="text-lg font-semibold text-primary tabular-nums">
-                    {(intervention.montant_ttc / 100).toFixed(2)} €
+                    {(intervention.montant_devis_ttc / 100).toFixed(2)} €
                   </span>
                 </div>
               )}

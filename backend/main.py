@@ -7,7 +7,7 @@ import sys
 
 from config import settings
 from database import engine
-from routes import auth as auth_routes, signatures as signatures_routes, users, scheduler
+from routes import auth as auth_routes, signatures as signatures_routes, users, scheduler, google_oauth
 from services.scheduler_service import start_scheduler, stop_scheduler
 from routes import sms as sms_routes
 from routes import settings as settings_routes
@@ -98,6 +98,7 @@ async def health_check():
 
 # === Routes ===
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
+app.include_router(google_oauth.router, prefix="/api/auth/google", tags=["google-oauth"])
 app.include_router(interventions_routes.router, prefix="/api/interventions", tags=["interventions"])
 app.include_router(signatures_routes.router, prefix="/api/signatures", tags=["signatures"])
 app.include_router(sms_routes.router, prefix="/api/sms", tags=["sms"])

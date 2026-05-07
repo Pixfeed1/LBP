@@ -14,3 +14,4 @@ __all__ = [
     "Setting", "SettingType",
 ]
 from models.email_log import EmailLog
+from models.google_credentials import GoogleCredentials

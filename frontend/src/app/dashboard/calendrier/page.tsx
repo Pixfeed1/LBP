@@ -41,19 +41,50 @@ export default function CalendarPage() {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+    // Gestion du retour OAuth
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("google_connected") === "1") {
+        toast.success("Google Calendar connecte avec succes !");
+        // Nettoie l'URL
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (params.get("google_error")) {
+        toast.error(`Erreur de connexion Google : ${params.get("google_error")}`);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, []);
 
   const handleTest = async () => {
     setTesting(true);
     try {
-      const res = await api.post<{ success: boolean; message: string }>("/api/calendar/test");
+      const res = await api.post<{ success: boolean; email?: string; calendar_summary?: string; error?: string }>("/api/calendar/test");
       if (res.data.success) {
-        toast.success(res.data.message);
+        toast.success(`Connexion OK ! Calendar : ${res.data.calendar_summary || res.data.email}`);
       } else {
-        toast.error(res.data.message);
+        toast.error(res.data.error || "Connexion echouee");
       }
     } catch {
       toast.error("Erreur lors du test");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setTesting(true);
+    try {
+      const res = await api.post<{ success: boolean; total_added: number; total_updated: number; total_errors: number }>("/api/calendar/sync");
+      if (res.data.success) {
+        toast.success(`Sync terminee : ${res.data.total_added} ajoutees, ${res.data.total_updated} mises a jour`);
+        loadAll();
+      } else {
+        toast.error("Echec de la sync");
+      }
+    } catch {
+      toast.error("Erreur lors de la sync");
     } finally {
       setTesting(false);
     }
@@ -97,7 +128,7 @@ export default function CalendarPage() {
         {/* État principal selon le state */}
         {status?.state === "disconnected" && <DisconnectedHero />}
         {status?.state === "error" && <ErrorHero status={status} onTest={handleTest} testing={testing} />}
-        {status?.state === "connected" && <ConnectedHero status={status} stats={stats} onTest={handleTest} testing={testing} />}
+        {status?.state === "connected" && <ConnectedHero status={status} stats={stats} onTest={handleTest} onSync={handleSync} testing={testing} />}
 
         {/* Bénéfices (toujours visibles si déconnecté) */}
         {status?.state === "disconnected" && <BenefitsList />}
@@ -134,13 +165,10 @@ function DisconnectedHero() {
         Connectez votre Google Calendar pour importer automatiquement les RDV
         et synchroniser les interventions sans saisie manuelle.
       </p>
-      <Button disabled className="opacity-60 cursor-not-allowed" title="En attente des accès Google de Kevin">
+      <Button onClick={() => { window.location.href = `${process.env.NEXT_PUBLIC_API_URL || ""}/api/auth/google/login`; }}>
         <Link2 className="mr-1.5 h-3.5 w-3.5" />
         Connecter Google Calendar
       </Button>
-      <p className="text-xs text-muted-foreground mt-3">
-        ⚠️ Cette action sera disponible quand les accès OAuth seront configurés
-      </p>
     </div>
   );
 }
@@ -165,7 +193,7 @@ function ErrorHero({ status, onTest, testing }: { status: CalendarStatus; onTest
               {testing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
               Tester la connexion
             </Button>
-            <Button className="bg-red-600 hover:bg-red-700">
+            <Button className="bg-red-600 hover:bg-red-700" onClick={() => { window.location.href = `${process.env.NEXT_PUBLIC_API_URL || ""}/api/auth/google/login`; }}>
               <Link2 className="mr-1.5 h-3.5 w-3.5" />
               Reconnecter Google Calendar
             </Button>
@@ -179,10 +207,11 @@ function ErrorHero({ status, onTest, testing }: { status: CalendarStatus; onTest
 /* ============================================================
    ÉTAT 01 : Connecté
    ============================================================ */
-function ConnectedHero({ status, stats, onTest, testing }: {
+function ConnectedHero({ status, stats, onTest, onSync, testing }: {
   status: CalendarStatus;
   stats: CalendarStats | null;
   onTest: () => void;
+  onSync: () => void;
   testing: boolean;
 }) {
   return (
@@ -213,7 +242,20 @@ function ConnectedHero({ status, stats, onTest, testing }: {
               {testing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
               Tester
             </Button>
-            <Button variant="outline">
+            <Button onClick={onSync} disabled={testing}>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              Synchroniser maintenant
+            </Button>
+            <Button variant="outline" onClick={async () => {
+              if (!confirm("Voulez-vous vraiment deconnecter Google Calendar ?")) return;
+              try {
+                await api.post("/api/auth/google/disconnect");
+                toast.success("Google Calendar deconnecte");
+                window.location.reload();
+              } catch (e) {
+                toast.error("Erreur lors de la deconnexion");
+              }
+            }}>
               <Unlink className="mr-1.5 h-3.5 w-3.5" />
               Déconnecter
             </Button>

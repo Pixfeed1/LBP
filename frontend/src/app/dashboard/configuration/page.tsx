@@ -14,7 +14,7 @@ import type { SettingItem } from "@/types/setting";
 // Types & Constants
 // ============================================================
 
-type SectionId = "signature" | "templates" | "notifs";
+type SectionId = "signature" | "templates" | "notifs" | "relances";
 
 interface NavItem {
   id: SectionId | "placeholder";

@@ -129,7 +129,7 @@ def job_rappel_j1():
 
             try:
                 result = send_sms_twilio(
-                    to=intv.client_telephone,
+                    to_number=intv.client_telephone,
                     message=msg,
                     intervention_id=str(intv.id),
                     sms_type=SmsType.RDV_RAPPEL,
@@ -231,7 +231,7 @@ def job_relance_signatures():
 
             try:
                 send_sms_twilio(
-                    to=intv.client_telephone,
+                    to_number=intv.client_telephone,
                     message=msg,
                     intervention_id=str(intv.id),
                     sms_type=SmsType.SIGNATURE_RELANCE,
@@ -255,6 +255,28 @@ def job_relance_signatures():
 # ============================================================
 
 _scheduler = None
+
+
+
+
+def job_sync_calendar():
+    """Sync les events Google Calendar -> Interventions toutes les 15 min."""
+    if not _is_enabled("relance.scheduler_enabled"):
+        return
+    try:
+        from services import calendar_sync_service
+        db = SessionLocal()
+        try:
+            stats = calendar_sync_service.sync_all_active(db)
+            if stats.get("users_synced", 0) > 0:
+                logger.info(
+                    f"[SCHEDULER] Sync Calendar : {stats['total_added']} ajoutees, "
+                    f"{stats['total_updated']} mises a jour ({stats['users_synced']} users)"
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"[SCHEDULER] Sync Calendar erreur : {e}")
 
 
 def start_scheduler():
@@ -335,6 +357,8 @@ def trigger_job_now(job_id: str) -> bool:
     """Déclenche un job manuellement (debug/test)."""
     if job_id == "rappel_j1":
         job_rappel_j1()
+    elif job_id == "sync_calendar":
+        job_sync_calendar()
         return True
     elif job_id == "relance_signatures":
         job_relance_signatures()

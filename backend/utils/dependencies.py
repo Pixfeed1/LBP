@@ -1,5 +1,5 @@
 """Dependencies FastAPI pour injection (auth, DB)."""
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -60,3 +60,39 @@ def require_manager_or_admin(user: User = Depends(get_current_user)) -> User:
             detail="Accès manager requis"
         )
     return user
+
+
+def get_current_user_optional(
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    """Version optionnelle : retourne le user si token valide, sinon None.
+
+    Utile pour les routes OAuth callback ou la version /login qui peut etre
+    appelee avec ou sans user logue.
+    """
+    if request is None:
+        return None
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    try:
+        return get_current_user_from_token(auth_header.replace("Bearer ", ""), db)
+    except Exception:
+        return None
+
+
+def get_current_user_from_token(token: str, db: Session):
+    """Decode le token JWT et retourne le user, raise si invalide."""
+    from jose import jwt, JWTError
+    from config import settings
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        user_email = payload.get("sub")
+        if not user_email:
+            return None
+    except JWTError:
+        return None
+    from models.user import User
+    return db.query(User).filter(User.email == user_email).first()
+

@@ -348,7 +348,7 @@ function MobileInterventionCard({ iv }: { iv: Intervention }) {
   };
   const badge = statusBadge[iv.status] || { label: iv.status, classes: "bg-muted text-muted-foreground border-border" };
 
-  const montantStr = iv.montant_ttc != null ? (iv.montant_ttc / 100).toFixed(2) + " EUR" : "";
+  const montantStr = iv.montant_devis_ttc != null ? (iv.montant_devis_ttc / 100).toFixed(2) + " EUR" : "";
 
   return (
     <button

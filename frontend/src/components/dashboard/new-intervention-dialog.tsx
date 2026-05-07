@@ -32,10 +32,10 @@ const schema = z.object({
   description_travaux: z.string().optional(),
   montant_devis_ht: z.coerce.number().min(0).optional(),
   montant_devis_ttc: z.coerce.number().min(0).optional(),
-  logement_plus_2_ans: z.enum(["Y", "N"]).default("Y"),
+  logement_plus_2_ans: z.enum(["Y", "N"]),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.input<typeof schema>;
 
 interface Props {
   open: boolean;
@@ -66,8 +66,8 @@ export function NewInterventionDialog({ open, onClose, onCreated }: Props) {
       const payload = {
         ...data,
         // Convertir prix en centimes
-        montant_devis_ht: data.montant_devis_ht ? Math.round(data.montant_devis_ht * 100) : undefined,
-        montant_devis_ttc: data.montant_devis_ttc ? Math.round(data.montant_devis_ttc * 100) : undefined,
+        montant_devis_ht: data.montant_devis_ht ? Math.round(Number(data.montant_devis_ht) * 100) : undefined,
+        montant_devis_ttc: data.montant_devis_ttc ? Math.round(Number(data.montant_devis_ttc) * 100) : undefined,
         // Convertir date en datetime ISO
         date_rdv: new Date(`${data.date_rdv}T${data.heure_rdv?.replace("h", ":") || "09:00"}:00`).toISOString(),
         // Vider les chaînes vides

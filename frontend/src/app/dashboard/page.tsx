@@ -93,7 +93,7 @@ export default function DashboardPage() {
           <MobileKpi
             label="Interventions"
             value={stats?.total ?? "—"}
-            sub={stats && stats.this_week ? `+${stats.this_week} cette sem.` : "Total"}
+            sub={stats && stats.week ? `+${stats.week} cette sem.` : "Total"}
             tone="success"
           />
           <MobileKpi
@@ -109,7 +109,7 @@ export default function DashboardPage() {
           />
           <MobileKpi
             label="Interventions"
-            value={stats?.this_month ?? "—"}
+            value={stats?.month ?? "—"}
             sub="Ce mois"
           />
         </div>
