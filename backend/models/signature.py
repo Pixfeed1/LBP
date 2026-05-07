@@ -33,6 +33,7 @@ class Signature(Base):
     signer_ip = Column(String(45), nullable=True)  # IPv6 max
     signer_user_agent = Column(Text, nullable=True)
     signer_name_typed = Column(String(255), nullable=True)  # nom retapé
+    signer_email = Column(String(255), nullable=True)  # email pour recevoir copie PDF
     signer_consent_text = Column(Text, nullable=True)  # mention manuscrite
     hash_sha256 = Column(String(64), nullable=True)
     

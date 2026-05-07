@@ -52,6 +52,7 @@ export default function SignaturePage() {
   const [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [clientEmail, setClientEmail] = useState("");
 
   const [signerName, setSignerName] = useState("");
   const [consentText, setConsentText] = useState("");
@@ -131,6 +132,7 @@ export default function SignaturePage() {
           signature_image: signatureImage,
           signer_name_typed: signerName.trim(),
           consent_text: consentText.trim(),
+          client_email: clientEmail.trim() || null,
         }),
       });
       if (!res.ok) {

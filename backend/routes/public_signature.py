@@ -26,6 +26,8 @@ from models import (
     Signature, SignatureStatus,
 )
 
+from services import email_service
+
 router = APIRouter()
 
 
@@ -63,6 +65,8 @@ class SignRequest(BaseModel):
     signature_image: str = Field(min_length=100, description="Canvas signature en base64 PNG (data URL)")
     signer_name_typed: str = Field(min_length=2, max_length=255, description="Nom retapé par le client")
     consent_text: str = Field(min_length=5, max_length=500, description="Mention manuscrite saisie")
+    client_email: Optional[str] = None  # email pour recevoir le PDF signe
+
 
 
 class SignResponse(BaseModel):
@@ -232,6 +236,7 @@ async def sign_documents(
             signer_ip=signer_ip,
             signer_user_agent=signer_user_agent,
             signer_name_typed=payload.signer_name_typed,
+                signer_email=payload.client_email,
             signer_consent_text=payload.consent_text,
             hash_sha256=hash_sha256,
             provider="maison",
@@ -247,6 +252,25 @@ async def sign_documents(
 
     # Mettre à jour l'intervention
     intervention.status = InterventionStatus.SIGNED
+    db.commit()
+    db.refresh(intervention)
+
+    # Envoi email PDF signe au client si email fourni
+    if payload.client_email:
+        try:
+            from services import email_service as _email_svc
+            result = _email_svc.send_signed_pdf_email(
+                to_email=payload.client_email,
+                intervention=intervention,
+                documents=documents,
+            )
+            if result.get("success"):
+                logger.info(f"[SIGN] Email PDF envoye a {payload.client_email}")
+            else:
+                logger.warning(f"[SIGN] Echec email: {result.get('error')}")
+        except Exception as e:
+            logger.error(f"[SIGN] Erreur envoi email : {e}")
+
     db.commit()
 
     # Incruster les signatures dans les PDFs (try/except : ne fait pas échouer la signature)

@@ -13,3 +13,4 @@ __all__ = [
     "Signature", "SignatureStatus",
     "Setting", "SettingType",
 ]
+from models.email_log import EmailLog
