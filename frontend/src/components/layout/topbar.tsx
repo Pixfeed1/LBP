@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, HelpCircle, LogOut, Menu } from "lucide-react";
+import { HelpCircle, LogOut, Menu } from "lucide-react";
 
 import { NotificationsPopover } from "@/components/notifications/notifications-popover";
+import { SearchBox } from "@/components/layout/search-box";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function Topbar({ breadcrumb }: { breadcrumb: string }) {
@@ -37,19 +38,7 @@ export function Topbar({ breadcrumb }: { breadcrumb: string }) {
 
         <div className="flex-1" />
 
-        <div className="hidden md:flex items-center gap-2 bg-muted/50 hover:bg-muted/70 transition-colors px-3 py-1.5 rounded-md w-72 cursor-pointer">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Rechercher (⌘K)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
-          />
-          <kbd className="hidden lg:inline-flex h-5 px-1.5 text-[10px] font-medium bg-background border border-border rounded text-muted-foreground items-center">
-            ⌘K
-          </kbd>
-        </div>
+        <SearchBox />
 
         <NotificationsPopover />
 
