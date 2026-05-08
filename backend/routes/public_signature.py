@@ -255,6 +255,13 @@ async def sign_documents(
     db.commit()
     db.refresh(intervention)
 
+    # Notif admin : signature complete
+    try:
+        from services import notification_service as _nsvc
+        _nsvc.notify_signature_complete(db, intervention)
+    except Exception as e:
+        logger.warning(f"[SIGN] Notif signature_complete echec : {e}")
+
     # Envoi email PDF signe au client si email fourni
     if payload.client_email:
         try:
@@ -266,8 +273,18 @@ async def sign_documents(
             )
             if result.get("success"):
                 logger.info(f"[SIGN] Email PDF envoye a {payload.client_email}")
+                try:
+                    from services import notification_service as _nsvc2
+                    _nsvc2.notify_email_sent(db, payload.client_email, intervention)
+                except Exception as e:
+                    logger.warning(f"[SIGN] Notif email_sent echec : {e}")
             else:
                 logger.warning(f"[SIGN] Echec email: {result.get('error')}")
+                try:
+                    from services import notification_service as _nsvc2
+                    _nsvc2.notify_email_failed(db, payload.client_email, intervention, result.get('error', ''))
+                except Exception as e:
+                    logger.warning(f"[SIGN] Notif email_failed echec : {e}")
         except Exception as e:
             logger.error(f"[SIGN] Erreur envoi email : {e}")
 

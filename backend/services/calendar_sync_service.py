@@ -59,7 +59,14 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                         status=InterventionStatus.DRAFT,
                     )
                     db.add(intv)
+                    db.flush()  # Pour avoir l'ID avant commit final
                     stats["added"] += 1
+                    # Notif intervention creee depuis Calendar
+                    try:
+                        from services import notification_service as _nsvc
+                        _nsvc.notify_intervention_created(db, intv, source="calendar")
+                    except Exception as ne:
+                        logger.warning(f"[SYNC] Notif intervention_created echec : {ne}")
 
             except Exception as e:
                 logger.error(f"[SYNC] Erreur sur event {event.get('id')} : {e}")
@@ -77,11 +84,23 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
             f"{stats['added']} ajoutees, {stats['updated']} mises a jour, "
             f"{stats['errors']} erreurs / {stats['events_total']} events totaux"
         )
+        # Notif admin si ajouts ou updates
+        try:
+            from services import notification_service as _nsvc
+            _nsvc.notify_calendar_sync_success(db, stats["added"], stats["updated"])
+        except Exception as e:
+            logger.warning(f"[SYNC] Notif sync_success echec : {e}")
         return stats
 
     except Exception as e:
         logger.exception(f"[SYNC] Erreur globale pour {creds_db.google_email} : {e}")
         stats["errors"] += 1
+        # Notif admin CRITICAL
+        try:
+            from services import notification_service as _nsvc
+            _nsvc.notify_calendar_sync_error(db, str(e))
+        except Exception as ne:
+            logger.warning(f"[SYNC] Notif sync_error echec : {ne}")
         return stats
 
 

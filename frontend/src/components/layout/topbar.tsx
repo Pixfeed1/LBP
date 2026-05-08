@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, HelpCircle, LogOut, Menu } from "lucide-react";
+import { Search, HelpCircle, LogOut, Menu } from "lucide-react";
+
+import { NotificationsPopover } from "@/components/notifications/notifications-popover";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function Topbar({ breadcrumb }: { breadcrumb: string }) {
@@ -22,10 +24,7 @@ export function Topbar({ breadcrumb }: { breadcrumb: string }) {
           <Menu className="h-5 w-5 text-foreground" />
         </button>
         <div className="flex-1 text-center text-sm font-semibold truncate">{breadcrumb}</div>
-        <button className="relative p-2 -mr-1 rounded-md hover:bg-muted/60 transition-colors" aria-label="Notifications">
-          <Bell className="h-5 w-5 text-foreground" />
-          <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
+        <NotificationsPopover />
       </div>
 
       {/* Desktop header (>= lg) */}
@@ -52,10 +51,7 @@ export function Topbar({ breadcrumb }: { breadcrumb: string }) {
           </kbd>
         </div>
 
-        <button className="relative p-1.5 rounded-md hover:bg-muted/60 transition-colors">
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
+        <NotificationsPopover />
 
         <button className="p-1.5 rounded-md hover:bg-muted/60 transition-colors">
           <HelpCircle className="h-4 w-4 text-muted-foreground" />

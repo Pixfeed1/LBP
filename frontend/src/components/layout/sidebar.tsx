@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, CalendarSync, PenLine,
-  Files, MessageSquare, Settings, Users, ChevronDown,
+  Files, MessageSquare, Settings, Users, ChevronDown, Bell,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -25,6 +25,7 @@ const NAV_MAIN: NavItem[] = [
 const NAV_ACTIVITY: NavItem[] = [
   { href: "/dashboard/documents", label: "Documents signés", icon: Files },
   { href: "/dashboard/sms", label: "SMS envoyés", icon: MessageSquare },
+  { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
 ];
 
 const NAV_SETTINGS: NavItem[] = [
