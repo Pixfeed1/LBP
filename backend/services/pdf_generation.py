@@ -21,7 +21,10 @@ def intervention_to_client_data(intervention: Intervention) -> dict:
     """Convertit une Intervention en client_data attendu par pdf_filler."""
     date_str = intervention.date_rdv.strftime("%d/%m/%Y") if intervention.date_rdv else datetime.now().strftime("%d/%m/%Y")
     
+    # Reference courte basee sur l'UUID de l'intervention
+    ref_short = str(intervention.id)[:8].upper()
     return {
+        "reference_intervention": f"LBP-{ref_short}",
         "nom": intervention.client_nom or "",
         "prenom": intervention.client_prenom or "",
         "telephone": intervention.client_telephone or "",
@@ -81,7 +84,8 @@ def generate_pdf_for_document(document: Document, intervention: Intervention) ->
             from services.proces_verbal_generator import generate_proces_verbal_pdf
             generate_proces_verbal_pdf(client_data, str(output_path))
         elif document.type == DocumentType.DELEGATION_PAIEMENT:
-            pdf_filler.fill_delegation_paiement(str(template), client_data, str(output_path))
+            from services.delegation_paiement_generator import generate_delegation_pdf
+            generate_delegation_pdf(client_data, str(output_path))
         elif document.type == DocumentType.FICHE_TRAVAUX:
             from services.fiche_travaux_generator import generate_fiche_travaux_pdf
             generate_fiche_travaux_pdf(client_data, str(output_path))
