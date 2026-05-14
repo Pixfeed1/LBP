@@ -53,9 +53,9 @@ def fill_proces_verbal(template_path, client_data, output_path):
 
     # Effacer + remplir (cohérent avec projet 1)
     sinistre_text = "N sinistre: " + client_data.get("sinistre", "")
-    cie_text = "Cie: SINISTRES - PACIFICA"
+    cie_text = ""  # Retire pour particuliers (avant: Cie: SINISTRES - PACIFICA)
     ref_ma_text = "Ref MA : " + client_data.get("reference_ma", "")
-    franchise_text = "Franchise reglee: 0,00"
+    franchise_text = ""  # Retire pour particuliers (avant: Franchise reglee: 0,00)
 
     replacements = [
         # N° sinistre
@@ -171,7 +171,6 @@ def fill_fiche_travaux(template_path, client_data, output_path):
 
     fields = [
         # === Colonne 2 : Références ===
-        {"text": "SINISTRES - PACIFICA", "x": 240, "y": 153, "size": 8},
         {"text": client_data.get("sinistre", ""), "x": 245, "y": 148, "size": 8},
         {"text": client_data.get("reference_ma", ""), "x": 220, "y": 196, "size": 8},
 

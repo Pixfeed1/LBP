@@ -319,6 +319,16 @@ def start_scheduler():
     )
     logger.info("[SCHEDULER] Job 'relance_signatures' programme toutes les heures")
 
+    # Job 3 : Sync Google Calendar -> Interventions (toutes les 15 min)
+    sync_interval = _get_int_setting("calendar.sync_interval_minutes", 15)
+    _scheduler.add_job(
+        job_sync_calendar,
+        trigger=IntervalTrigger(minutes=sync_interval),
+        id="sync_calendar",
+        replace_existing=True,
+    )
+    logger.info(f"[SCHEDULER] Job 'sync_calendar' programme toutes les {sync_interval} minutes")
+
     _scheduler.start()
     logger.info("[SCHEDULER] APScheduler demarre avec 2 jobs")
     return _scheduler

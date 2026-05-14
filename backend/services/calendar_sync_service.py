@@ -67,6 +67,22 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                         _nsvc.notify_intervention_created(db, intv, source="calendar")
                     except Exception as ne:
                         logger.warning(f"[SYNC] Notif intervention_created echec : {ne}")
+                    # Envoi auto signature/SMS si setting active
+                    try:
+                        from models.setting import Setting as _Setting
+                        _s = db.query(_Setting).filter(_Setting.key == "calendar.auto_send_sms").first()
+                        if _s and str(_s.value).lower() in ("y", "true", "1", "yes"):
+                            from services.signature_service import prepare_signature_workflow as _psw
+                            try:
+                                _wf = _psw(db, intv)
+                                logger.info(
+                                    f"[SYNC] Auto-envoi signature OK pour intv {intv.id} "
+                                    f"(sms_sent={_wf.get('sms_sent')}, docs={_wf.get('documents_generated')})"
+                                )
+                            except Exception as _we:
+                                logger.error(f"[SYNC] Auto-envoi signature echec pour intv {intv.id} : {_we}")
+                    except Exception as _se:
+                        logger.warning(f"[SYNC] Lecture setting auto_send_sms echec : {_se}")
 
             except Exception as e:
                 logger.error(f"[SYNC] Erreur sur event {event.get('id')} : {e}")

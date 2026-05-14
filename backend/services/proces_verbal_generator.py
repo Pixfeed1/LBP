@@ -129,13 +129,11 @@ def generate_proces_verbal_pdf(client_data, output_path):
     col2 = [
         P("R\u00e9f\u00e9rences:", bold=True),
         P(f"N\u00ba sinistre: {client_data.get('sinistre', '')}"),
-        P(f"Cie: SINISTRES - PACIFICA"),
         P(""),
         P(""),
         P(f"R\u00e9f MA : {client_data.get('reference_ma', '')}"),
         P(""),
         P(""),
-        P(f"Franchise r\u00e9gl\u00e9e: 0,00"),
     ]
 
     col3 = [P("Nom et adresse du client:", bold=True)]

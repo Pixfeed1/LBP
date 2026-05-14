@@ -32,7 +32,7 @@ def get_documents_for_intervention(intervention: Intervention) -> List[DocumentT
     Si logement +2 ans : Attestation TVA en plus.
     Si délégation paiement (mutuelle/assurance) : Délégation paiement.
     """
-    docs = [DocumentType.PROCES_VERBAL, DocumentType.FICHE_TRAVAUX]
+    docs = [DocumentType.PROCES_VERBAL, DocumentType.FICHE_TRAVAUX, DocumentType.DELEGATION_PAIEMENT]
     
     if intervention.logement_plus_2_ans == "Y":
         docs.append(DocumentType.ATTESTATION_TVA)
