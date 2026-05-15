@@ -36,7 +36,7 @@ def list_calendar_events(
     db: Session,
     creds_db: GoogleCredentials,
     days_ahead: int = 30,
-    days_behind: int = 1,
+    days_behind: int = 60,
 ) -> List[Dict[str, Any]]:
     """Liste les events du calendrier sur la periode demandee.
 
@@ -60,7 +60,7 @@ def list_calendar_events(
         calendarId=creds_db.calendar_id or "primary",
         timeMin=time_min,
         timeMax=time_max,
-        maxResults=250,
+        maxResults=2500,
         singleEvents=True,
         orderBy="startTime",
     ).execute()
