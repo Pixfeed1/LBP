@@ -56,7 +56,7 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                     # Cree nouvelle intervention
                     intv = Intervention(
                         **parsed,
-                        status=InterventionStatus.DRAFT,
+                        status=InterventionStatus.PENDING,
                     )
                     db.add(intv)
                     db.flush()  # Pour avoir l'ID avant commit final
