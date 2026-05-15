@@ -19,7 +19,7 @@ class InterventionBase(BaseModel):
     
     date_rdv: datetime
     heure_rdv: Optional[str] = Field(None, max_length=20)
-    duree_estimee: Optional[int] = Field(None, ge=15, le=480)  # 15min à 8h
+    duree_estimee: Optional[int] = Field(None, ge=15, le=720)  # 15min à 8h
     
     description_travaux: Optional[str] = None
     montant_devis_ht: Optional[int] = Field(None, ge=0)  # en centimes
