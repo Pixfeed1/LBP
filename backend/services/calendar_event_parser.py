@@ -166,6 +166,20 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if logement not in ("Y", "N"):
         logement = "Y"
 
+    # === Extraction CP + VILLE depuis le titre summary ===
+    # Pattern typique Jessica : "75016 PARIS - VISUELLE" ou " 92110 Clichy - REPA"
+    cp_from_title = ""
+    ville_from_title = ""
+    summary_clean = summary.strip() if summary else ""
+    m_loc = re.match(r'^([0-9]{5})\s+([A-Za-z\u00c0-\u017f][A-Za-z\u00c0-\u017f\-\s]+?)\s*[\-/]', summary_clean)
+    if m_loc:
+        cp_from_title = m_loc.group(1)
+        ville_from_title = m_loc.group(2).strip().title()  # "PARIS" -> "Paris"
+
+    # On override seulement si la valeur du parser address n'est pas la
+    final_cp = address_data.get("client_code_postal") or cp_from_title
+    final_ville = address_data.get("client_ville") or ville_from_title
+
     return {
         "google_event_id": event.get("id"),
         "description_calendar_raw": description,  # Brute complete Google pour re-parsing futur
@@ -173,9 +187,9 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "client_prenom": client_prenom,
         "client_telephone": _normalize_phone(phone_raw),
         "client_email": _extract_first(PATTERNS["client_email"], description),
-        "client_adresse": address_data["client_adresse"],
-        "client_code_postal": address_data["client_code_postal"],
-        "client_ville": address_data["client_ville"],
+        "client_adresse": address_data.get("client_adresse", ""),
+        "client_code_postal": final_cp,
+        "client_ville": final_ville,
         "date_rdv": date_rdv,
         "duree_estimee": duree_minutes,
         "description_travaux": _extract_first(PATTERNS["description_travaux"], description) or summary,
