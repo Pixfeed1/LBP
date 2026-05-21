@@ -1,10 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard, FileText, CalendarSync, PenLine,
-  Files, MessageSquare, Settings, Users, ChevronDown, Bell,
-} from "lucide-react";
+import { LayoutDashboard, FileText, CalendarSync, PenLine,
+  Files, MessageSquare, Settings, Users, ChevronDown, Bell, HelpCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 
 interface NavItem {
@@ -31,6 +29,7 @@ const NAV_ACTIVITY: NavItem[] = [
 const NAV_SETTINGS: NavItem[] = [
   { href: "/dashboard/configuration", label: "Configuration", icon: Settings },
   { href: "/dashboard/equipe", label: "Équipe", icon: Users },
+  { href: "/dashboard/aide", label: "Aide & FAQ", icon: HelpCircle },
 ];
 
 export function Sidebar() {

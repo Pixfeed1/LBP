@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HelpCircle, LogOut, Menu } from "lucide-react";
 
@@ -42,9 +43,13 @@ export function Topbar({ breadcrumb }: { breadcrumb: string }) {
 
         <NotificationsPopover />
 
-        <button className="p-1.5 rounded-md hover:bg-muted/60 transition-colors">
+        <Link
+          href="/dashboard/aide"
+          className="p-1.5 rounded-md hover:bg-muted/60 transition-colors inline-flex items-center"
+          title="Aide & FAQ"
+        >
           <HelpCircle className="h-4 w-4 text-muted-foreground" />
-        </button>
+        </Link>
 
         <button
           onClick={handleLogout}
