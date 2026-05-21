@@ -20,6 +20,51 @@ SIGNATURE_PATH = ASSETS_DIR / "signature_lbp.jpg"
 LOGO_PATH = ASSETS_DIR / "logo_promultitravaux.jpg"
 
 
+def _parse_pacifica_refs(raw_desc):
+    """Parse refs Pacifica/Allianz/Axa depuis description Calendar brute.
+    
+    Retourne dict : { 'numero_sinistre', 'cie_assurance', 'franchise' }
+    Tous vides si non trouve.
+    """
+    import re as _re
+    refs = {"numero_sinistre": "", "cie_assurance": "", "franchise": ""}
+    if not raw_desc:
+        return refs
+
+    # Compagnies connues
+    cies = ["PACIFICA", "ALLIANZ", "AXA", "MAAF", "MMA", "MATMUT", "MACIF", "GENERALI", "GROUPAMA", "GAN", "SINNAPS", "SwissLife", "AVIVA"]
+    for cie in cies:
+        if _re.search(r"\b" + cie + r"\b", raw_desc, _re.IGNORECASE):
+            refs["cie_assurance"] = cie
+            break
+
+    # Numero sinistre : suite de chiffres (5-12 digits) au debut ou avant la Cie
+    m = _re.search(r"(?:^|\s)(\d{5,12})\s*[-/\s]", raw_desc)
+    if m:
+        refs["numero_sinistre"] = m.group(1)
+    
+    # Sinon : code mixte (lettres+chiffres) du genre "PB130", "ABC1234"
+    if not refs["numero_sinistre"]:
+        m = _re.search(r"(?:^|\s)([A-Z]{1,3}\d{2,8})\s*[-/\s]", raw_desc)
+        if m:
+            refs["numero_sinistre"] = m.group(1)
+
+    # Franchise : "FRANCHISE : NON" ou "FRANCHISE 0 EUROS" ou "FRANCHISE: 250"
+    m = _re.search(r"FRANCHISE\s*:?\s*(NON|[0-9]+\s*(?:EUROS?|€)?)", raw_desc, _re.IGNORECASE)
+    if m:
+        val = m.group(1).strip()
+        if val.upper() == "NON":
+            refs["franchise"] = "0,00 €"
+        else:
+            # Extrait juste le nombre
+            num_match = _re.search(r"\d+", val)
+            if num_match:
+                refs["franchise"] = num_match.group(0) + ",00 €"
+
+    return refs
+
+
+
 def _draw_dotted_line_with_text(c, x, y, width, text="", font="Helvetica", font_size=10):
     """Dessine une ligne pointillée avec texte au début."""
     c.setFont(font, font_size)
@@ -126,14 +171,18 @@ def generate_proces_verbal_pdf(client_data, output_path):
         P("9 AVENUE JEAN JAURES 75019 PARIS"),
     ]
 
+    # Parse refs Pacifica depuis description Calendar brute
+    raw_desc = client_data.get("description_calendar_raw", "") or client_data.get("description_travaux", "")
+    pacifica_refs = _parse_pacifica_refs(raw_desc)
+
     col2 = [
         P("R\u00e9f\u00e9rences:", bold=True),
-        P(f"N\u00ba sinistre: {client_data.get('sinistre', '')}"),
+        P(f"N\u00ba sinistre: {pacifica_refs['numero_sinistre'] or client_data.get('sinistre', '')}"),
         P(""),
-        P(""),
+        P(f"Cie: {pacifica_refs['cie_assurance']}") if pacifica_refs['cie_assurance'] else P(""),
         P(f"R\u00e9f MA : {client_data.get('reference_ma', '')}"),
         P(""),
-        P(""),
+        P(f"Franchise: {pacifica_refs['franchise']}") if pacifica_refs['franchise'] else P(""),
     ]
 
     col3 = [P("Nom et adresse du client:", bold=True)]
@@ -205,10 +254,10 @@ def generate_proces_verbal_pdf(client_data, output_path):
     box_size = 3.2 * mm
     c.drawString(MARGIN_L + 22 * mm, y, "> 2 ans")
     _draw_checkbox(c, MARGIN_L + 38 * mm, y - 0.5 * mm, size=box_size,
-                   checked=plus_2_ans)
+                   checked=False)  # KEVIN : pas de croix pre-cochee
     c.drawString(MARGIN_L + 60 * mm, y, "<2 ans")
     _draw_checkbox(c, MARGIN_L + 75 * mm, y - 0.5 * mm, size=box_size,
-                   checked=(not plus_2_ans))
+                   checked=False)  # KEVIN : pas de croix pre-cochee
 
     # ---------- Grand bloc 2 options ----------
     y_top_box = y - 5 * mm
@@ -253,7 +302,8 @@ def generate_proces_verbal_pdf(client_data, output_path):
     cb_y_row1 = y_top_box - row_h / 2 - cb_size / 2
     cb_y_row2 = y_top_box - bh2 + row_h / 2 - cb_size / 2
 
-    _draw_checkbox(c, cb_x, cb_y_row1, size=cb_size, checked=True)
+    # KEVIN : aucune croix pre-cochee, le client coche lui-meme
+    _draw_checkbox(c, cb_x, cb_y_row1, size=cb_size, checked=False)
     _draw_checkbox(c, cb_x, cb_y_row2, size=cb_size, checked=False)
 
     # ---------- Lignes pointillées des réserves ----------
@@ -261,19 +311,12 @@ def generate_proces_verbal_pdf(client_data, output_path):
     reserves_lines = 3
     line_spacing = 6 * mm
 
-    # Première ligne : on met la description des travaux
+    # KEVIN : pointilles vides, plus de description pre-remplie
     for i in range(reserves_lines):
         ly = y_after_box - i * line_spacing
-        if i == 0 and description:
-            c.setFont("Helvetica", 12)
-            c.drawString(MARGIN_L, ly, description[:80])
-            text_w = c.stringWidth(description[:80], "Helvetica", 12)
-            x_start = MARGIN_L + text_w + 4
-        else:
-            x_start = MARGIN_L
         c.setDash(1, 2)
         c.setLineWidth(0.5)
-        c.line(x_start, ly - 1, MARGIN_L + CONTENT_W, ly - 1)
+        c.line(MARGIN_L, ly - 1, MARGIN_L + CONTENT_W, ly - 1)
         c.setDash()
 
     # ---------- "Fait en 3 exemplaires..." (1) ----------

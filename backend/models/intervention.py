@@ -42,6 +42,7 @@ class Intervention(Base):
     
     # Détails travaux
     description_travaux = Column(Text, nullable=True)
+    description_calendar_raw = Column(Text, nullable=True)  # Brute Google pour parser refs Pacifica
     montant_devis_ht = Column(Integer, nullable=True)  # en centimes
     montant_devis_ttc = Column(Integer, nullable=True)  # en centimes
     logement_plus_2_ans = Column(String(1), default="Y", nullable=False)  # Y/N
@@ -54,6 +55,8 @@ class Intervention(Base):
     # Tracking
     sms_sent_count = Column(Integer, default=0, nullable=False)
     last_sms_sent_at = Column(DateTime, nullable=True)
+    last_reminder_at = Column(DateTime, nullable=True)
+    reminder_count = Column(Integer, default=0, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

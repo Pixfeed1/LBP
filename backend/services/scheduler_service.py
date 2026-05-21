@@ -16,7 +16,7 @@ from loguru import logger
 from typing import Optional
 
 from database import SessionLocal
-from models.intervention import Intervention
+from models.intervention import Intervention, InterventionStatus
 # (pas d'import Signature : on raisonne sur Intervention + Document directement)
 from models.sms_log import SmsLog, SmsType, SmsStatus
 from services.sms_service import send_sms_twilio
@@ -60,10 +60,28 @@ def _build_signature_url(token: str) -> str:
 
 
 def _format_template(template: str, intervention: Intervention, signature_token: Optional[str] = None, **extra) -> str:
-    """Substitue les variables {prenom} {nom} {date} {heure} {url} {nb_docs} dans le template."""
+    """Substitue les variables dans le template.
+
+    Variables supportees :
+    - {prenom}, {nom} : identite client
+    - {date} : date du RDV au format DD/MM/YYYY
+    - {heure} : heure du RDV au format HHhMM
+    - {creneau} : creneau ANNONCE extrait de la description Calendar (ex: "09h-12h"), vide sinon
+    - {url} ou {lien} : URL publique de signature (alias)
+    - {nb_docs} : nombre de documents a signer
+    """
+    import re as _re
+
     date_str = intervention.date_rdv.strftime("%d/%m/%Y") if intervention.date_rdv else ""
     heure_str = intervention.date_rdv.strftime("%Hh%M") if intervention.date_rdv else ""
     url_str = _build_signature_url(signature_token) if signature_token else ""
+
+    # Extraire le creneau ANNONCE depuis description_travaux (ex: "ANNONCE : 09h-12h" ou "9H 12h")
+    creneau_str = ""
+    desc = (intervention.description_travaux or "")
+    m = _re.search(r"ANNONCE\s*:?\s*([0-9]{1,2}\s*[Hh][0-9]{0,2}\s*[-a\u00e0]?\s*[0-9]{1,2}\s*[Hh][0-9]{0,2})", desc)
+    if m:
+        creneau_str = m.group(1).strip()
 
     result = template
     replacements = {
@@ -71,12 +89,20 @@ def _format_template(template: str, intervention: Intervention, signature_token:
         "{nom}": intervention.client_nom or "",
         "{date}": date_str,
         "{heure}": heure_str,
+        "{creneau}": creneau_str,
         "{url}": url_str,
+        "{lien}": url_str,  # ALIAS pour compat
         "{nb_docs}": str(extra.get("nb_docs", 1)),
     }
     for k, v in replacements.items():
         result = result.replace(k, v)
-    return result
+
+    # Cleanup : enlever espaces parasites laisses par variables vides
+    import re as _re_clean
+    result = _re_clean.sub(r"  +", " ", result)  # double espaces -> simple
+    result = _re_clean.sub(r"\s+([.,;:!?])", r"\1", result)  # espace avant ponctuation
+    result = _re_clean.sub(r"\(\s*\)", "", result)  # parentheses vides
+    return result.strip()
 
 
 # ============================================================
@@ -106,6 +132,8 @@ def job_rappel_j1():
                 Intervention.date_rdv >= tomorrow_start,
                 Intervention.date_rdv < tomorrow_end,
                 
+            Intervention.sms_sent_count > 0,  # SECURITE : pas de rappel si SMS initial pas envoye
+                Intervention.status != InterventionStatus.CANCELLED,
             )
         ).all()
 
@@ -122,6 +150,15 @@ def job_rappel_j1():
                 continue
 
             if not intv.client_telephone:
+                continue
+
+            # SECURITE : ne pas envoyer si nom = code postal (event mal identifie)
+            import re as _re_safe
+            if not intv.client_nom or _re_safe.match(r'^[0-9]{4,5}$', intv.client_nom.strip()):
+                logger.warning(
+                    f"[SCHEDULER] Skip {intv.id} : nom client absent ou = code postal "
+                    f"(client_nom={intv.client_nom!r})"
+                )
                 continue
 
             # Construit le message via template

@@ -23,6 +23,7 @@ from loguru import logger
 
 # Patterns regex tolerants : 'TEL ASSU:' ou 'tel assu :' etc.
 PATTERNS = {
+    "nom_complet": [r"NOM\s*:\s*([A-ZÀ-Ÿ][A-ZÀ-Ÿ\-\s]+?)(?:\s*<|\s*\n|$)"],
     "client_telephone": [r"TEL\s*ASSU\s*:\s*([+\d\s\.\-\(\)]+)", r"TEL\s*:\s*([+\d\s\.\-\(\)]+)", r"TELEPHONE\s*:\s*([+\d\s\.\-\(\)]+)"],
     "client_email": [r"EMAIL\s*ASSU\s*:\s*([^\s\n]+@[^\s\n]+)", r"EMAIL\s*:\s*([^\s\n]+@[^\s\n]+)", r"MAIL\s*:\s*([^\s\n]+@[^\s\n]+)"],
     "reference": [r"REF(?:ERENCE)?\s*:\s*([^\n]+)"],
@@ -112,13 +113,25 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
     # Decoupe summary "Nom Prenom" -> nom + prenom
-    parts = summary.strip().split()
-    if len(parts) >= 2:
-        client_nom = parts[0]
-        client_prenom = " ".join(parts[1:])
+    # 1. Essayer d'extraire le NOM depuis la description ("NOM : BRASSELEUR KEVIN")
+    nom_from_desc = _extract_first(PATTERNS.get("nom_complet", []), description)
+    if nom_from_desc:
+        nom_parts = nom_from_desc.strip().split()
+        if len(nom_parts) >= 2:
+            client_nom = nom_parts[0]
+            client_prenom = " ".join(nom_parts[1:])
+        else:
+            client_nom = nom_from_desc.strip()
+            client_prenom = ""
     else:
-        client_nom = summary.strip()
-        client_prenom = ""
+        # 2. Fallback : utiliser le titre de l'event
+        parts = summary.strip().split()
+        if len(parts) >= 2:
+            client_nom = parts[0]
+            client_prenom = " ".join(parts[1:])
+        else:
+            client_nom = summary.strip()
+            client_prenom = ""
 
     # Date/heure RDV
     start = event.get("start", {})
@@ -155,6 +168,7 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     return {
         "google_event_id": event.get("id"),
+        "description_calendar_raw": description,  # Brute complete Google pour re-parsing futur
         "client_nom": client_nom,
         "client_prenom": client_prenom,
         "client_telephone": _normalize_phone(phone_raw),

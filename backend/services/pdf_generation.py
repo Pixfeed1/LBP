@@ -25,6 +25,7 @@ def intervention_to_client_data(intervention: Intervention) -> dict:
     ref_short = str(intervention.id)[:8].upper()
     return {
         "reference_intervention": f"LBP-{ref_short}",
+        "description_calendar_raw": intervention.description_calendar_raw or "",
         "nom": intervention.client_nom or "",
         "prenom": intervention.client_prenom or "",
         "telephone": intervention.client_telephone or "",
