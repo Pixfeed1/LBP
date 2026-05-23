@@ -161,6 +161,19 @@ def job_rappel_j1():
                 )
                 continue
 
+            # EXCLUSIONS Kevin : VIAREN, AWP, PARTICULIER, HS, HOMSERVE
+            # On regarde description_calendar_raw + description_travaux + reference_intervention
+            exclude_raw = _fetch_setting("relance.rappel_j1_exclude_keywords") or "VIAREN,AWP,PARTICULIER,HS,HOMSERVE"
+            exclude_keywords = [k.strip().upper() for k in exclude_raw.split(",") if k.strip()]
+            search_text = " ".join([
+                (intv.description_calendar_raw or ""),
+                (intv.description_travaux or ""),
+            ]).upper()
+            matched_exclusion = next((k for k in exclude_keywords if k in search_text), None)
+            if matched_exclusion:
+                logger.info(f"[SCHEDULER] Skip {intv.id} : exclusion '{matched_exclusion}' trouvee")
+                continue
+
             # Construit le message via template
             msg = _format_template(template, intv)
 

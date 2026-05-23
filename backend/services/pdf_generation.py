@@ -23,6 +23,8 @@ def intervention_to_client_data(intervention: Intervention) -> dict:
     
     # Reference courte basee sur l'UUID de l'intervention
     ref_short = str(intervention.id)[:8].upper()
+    from services.proces_verbal_generator import _parse_pacifica_refs
+    _pacifica_refs = _parse_pacifica_refs(intervention.description_calendar_raw or "")
     return {
         "reference_intervention": f"LBP-{ref_short}",
         "description_calendar_raw": intervention.description_calendar_raw or "",
@@ -44,6 +46,9 @@ def intervention_to_client_data(intervention: Intervention) -> dict:
         "compagnie": "",  # Pas de compagnie en projet 2 (sauf si fourni dans description Google Cal)
         "sinistre": "",   # Pas de N° sinistre par défaut
         "reference_ma": "",  # Pas de Ref MA par défaut
+        "numero_contrat": intervention.numero_contrat or "",
+        "numero_sinistre": intervention.numero_sinistre or _pacifica_refs.get("numero_sinistre", ""),
+        "franchise": _pacifica_refs.get("franchise", "") or "0,00 €",
     }
 
 

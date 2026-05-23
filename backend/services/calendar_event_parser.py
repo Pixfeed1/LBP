@@ -22,6 +22,10 @@ from loguru import logger
 
 
 # Patterns regex tolerants : 'TEL ASSU:' ou 'tel assu :' etc.
+PATTERNS_NEW_REFS = {
+    "numero_contrat": [r"CONTRAT\s*:\s*([A-Z0-9]+)"],
+    "numero_sinistre": [r"SINISTRE\s*:\s*([A-Z0-9]+)"],
+}
 PATTERNS = {
     "nom_complet": [r"NOM\s*:\s*([A-ZÀ-Ÿ][A-ZÀ-Ÿ\-\s]+?)(?:\s*<|\s*\n|$)"],
     "client_telephone": [r"TEL\s*ASSU\s*:\s*([+\d\s\.\-\(\)]+)", r"TEL\s*:\s*([+\d\s\.\-\(\)]+)", r"TELEPHONE\s*:\s*([+\d\s\.\-\(\)]+)"],
@@ -157,7 +161,26 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         except (ValueError, TypeError):
             pass
 
-    # Adresse decoupage
+    # === Adresse : 3 sources possibles, par ordre de priorite ===
+    # 1. event.location (Google Calendar) ex: "9 Av. Jean Jaurès, 75019 Paris, France"
+    # 2. ADRESSE: dans description (rare, 3/288)
+    # 3. (fallback) cp+ville extrait du titre
+    location_raw = (event.get("location", "") or "").strip()
+    location_rue = ""
+    location_cp = ""
+    location_ville = ""
+    if location_raw:
+        # Pattern : "<rue>, <cp> <ville>, France"
+        m_loc = re.match(r'^(.+?),\s*(\d{5})\s+([A-Za-z\u00c0-\u017f][A-Za-z\u00c0-\u017f\-\s]+?)(?:,\s*France)?\s*$', location_raw)
+        if m_loc:
+            location_rue = m_loc.group(1).strip()
+            location_cp = m_loc.group(2)
+            location_ville = m_loc.group(3).strip().title()
+        else:
+            # Fallback : prendre tout comme rue
+            location_rue = location_raw
+
+    # Adresse decoupage (ancien path : ADRESSE: dans description)
     address_data = _parse_address(_extract_first(PATTERNS["client_adresse_full"], description) or "")
 
     # Logement +2 ans : default Y
@@ -176,9 +199,10 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         cp_from_title = m_loc.group(1)
         ville_from_title = m_loc.group(2).strip().title()  # "PARIS" -> "Paris"
 
-    # On override seulement si la valeur du parser address n'est pas la
-    final_cp = address_data.get("client_code_postal") or cp_from_title
-    final_ville = address_data.get("client_ville") or ville_from_title
+    # Ordre de priorite : location Google > ADRESSE: description > cp/ville titre
+    final_adresse = location_rue or address_data.get("client_adresse", "")
+    final_cp = location_cp or address_data.get("client_code_postal") or cp_from_title
+    final_ville = location_ville or address_data.get("client_ville") or ville_from_title
 
     return {
         "google_event_id": event.get("id"),
@@ -187,9 +211,11 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "client_prenom": client_prenom,
         "client_telephone": _normalize_phone(phone_raw),
         "client_email": _extract_first(PATTERNS["client_email"], description),
-        "client_adresse": address_data.get("client_adresse", ""),
+        "client_adresse": final_adresse,
         "client_code_postal": final_cp,
         "client_ville": final_ville,
+        "numero_contrat": _extract_first(PATTERNS_NEW_REFS["numero_contrat"], description) or "",
+        "numero_sinistre": _extract_first(PATTERNS_NEW_REFS["numero_sinistre"], description) or "",
         "date_rdv": date_rdv,
         "duree_estimee": duree_minutes,
         "description_travaux": _extract_first(PATTERNS["description_travaux"], description) or summary,

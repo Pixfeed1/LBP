@@ -129,6 +129,83 @@ async def get_stats(
     )
 
 
+@router.get("/export-csv")
+async def export_csv(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    status_filter: Optional[str] = Query(None, alias="status"),
+):
+    """Exporte toutes les interventions au format CSV (UTF-8 BOM pour Excel).
+    
+    Colonnes :
+    Date RDV, Heure, Client, Telephone, Adresse, CP, Ville,
+    N Contrat, N Sinistre, Description, Statut, SMS envoyes, Cree le
+    """
+    import csv
+    from io import StringIO
+    from fastapi.responses import StreamingResponse
+    
+    query = db.query(Intervention)
+    if status_filter and status_filter != "all":
+        try:
+            query = query.filter(Intervention.status == InterventionStatus(status_filter))
+        except ValueError:
+            pass
+    
+    interventions = query.order_by(Intervention.date_rdv.desc()).all()
+    
+    # Build CSV
+    output = StringIO()
+    output.write("﻿")  # BOM UTF-8 pour Excel
+    writer = csv.writer(output, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+    
+    writer.writerow([
+        "Date RDV", "Heure", "Nom", "Prenom", "Telephone", 
+        "Adresse", "Code Postal", "Ville",
+        "N Contrat", "N Sinistre", "Description",
+        "Statut", "SMS envoyes", "Cree le"
+    ])
+    
+    for intv in interventions:
+        date_rdv = intv.date_rdv.strftime("%d/%m/%Y") if intv.date_rdv else ""
+        heure_rdv = intv.date_rdv.strftime("%H:%M") if intv.date_rdv else ""
+        created_at = intv.created_at.strftime("%d/%m/%Y %H:%M") if intv.created_at else ""
+        statut = intv.status.value if intv.status else ""
+        
+        writer.writerow([
+            date_rdv,
+            heure_rdv,
+            intv.client_nom or "",
+            intv.client_prenom or "",
+            intv.client_telephone or "",
+            intv.client_adresse or "",
+            intv.client_code_postal or "",
+            intv.client_ville or "",
+            intv.numero_contrat or "",
+            intv.numero_sinistre or "",
+            (intv.description_travaux or "").replace("\n", " ").replace("\r", " ")[:200],
+            statut,
+            intv.sms_sent_count or 0,
+            created_at,
+        ])
+    
+    output.seek(0)
+    csv_content = output.getvalue()
+    
+    from datetime import datetime as _dt
+    filename = f"interventions_lbp_{_dt.now().strftime('%Y%m%d_%H%M')}.csv"
+    
+    logger.info(f"[EXPORT] {len(interventions)} interventions exportees en CSV")
+    
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        }
+    )
+
+
 @router.get("/{intervention_id}", response_model=InterventionResponse)
 async def get_intervention(
     intervention_id: UUID,
@@ -234,6 +311,120 @@ async def send_for_signature(
     return SendSignatureResponse(**result)
 
 
+
+
+@router.post("/send-batch-reminders")
+async def send_batch_reminders(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Envoie en lot les SMS de rappel J-1 a toutes les interventions du lendemain.
+    
+    Applique les memes filtres que le job auto (heure 19h) :
+    - Exclude VIAREN, AWP, PARTICULIER, HS, HOMSERVE
+    - Skip si sms_sent_count == 0 (SMS initial pas envoye)
+    - Skip si client_nom = code postal (event mal identifie)
+    - Skip si rappel deja envoye dans les 12 dernieres heures
+    
+    Retourne un compte rendu detaille.
+    """
+    import re as _re
+    from models.setting import Setting
+    from models.sms_log import SmsType
+    from services.sms_service import send_sms_twilio
+    from services.scheduler_service import _format_template, _fetch_setting
+    
+    # Fenetre demain
+    tomorrow_start = (datetime.utcnow() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_end = tomorrow_start + timedelta(days=1)
+    
+    interventions = db.query(Intervention).filter(
+        Intervention.date_rdv >= tomorrow_start,
+        Intervention.date_rdv < tomorrow_end,
+        Intervention.sms_sent_count > 0,
+        Intervention.status != InterventionStatus.CANCELLED,
+    ).all()
+    
+    # Settings
+    template = _fetch_setting("sms.template_rappel_j1") or \
+        "Rappel : intervention LBP demain {date} a {heure} chez vous."
+    exclude_raw = _fetch_setting("relance.rappel_j1_exclude_keywords") or "VIAREN,AWP,PARTICULIER,HS,HOMSERVE"
+    exclude_keywords = [k.strip().upper() for k in exclude_raw.split(",") if k.strip()]
+    
+    stats = {
+        "total_tomorrow": len(interventions),
+        "sent": 0,
+        "skipped_excluded": 0,
+        "skipped_no_phone": 0,
+        "skipped_bad_name": 0,
+        "skipped_recent_reminder": 0,
+        "errors": 0,
+        "details": [],
+    }
+    
+    for intv in interventions:
+        # Anti-rebond 12h
+        if intv.last_reminder_at and (datetime.utcnow() - intv.last_reminder_at).total_seconds() < 12 * 3600:
+            stats["skipped_recent_reminder"] += 1
+            continue
+        
+        if not intv.client_telephone:
+            stats["skipped_no_phone"] += 1
+            continue
+        
+        # Skip si nom = code postal
+        if not intv.client_nom or _re.match(r"^[0-9]{4,5}$", intv.client_nom.strip()):
+            stats["skipped_bad_name"] += 1
+            continue
+        
+        # Exclusions Kevin
+        search_text = " ".join([
+            (intv.description_calendar_raw or ""),
+            (intv.description_travaux or ""),
+        ]).upper()
+        matched = next((k for k in exclude_keywords if k in search_text), None)
+        if matched:
+            stats["skipped_excluded"] += 1
+            stats["details"].append({
+                "intervention_id": str(intv.id),
+                "client_nom": intv.client_nom,
+                "action": "skipped",
+                "reason": f"exclusion '{matched}'",
+            })
+            continue
+        
+        # Envoi SMS
+        msg = _format_template(template, intv)
+        try:
+            send_sms_twilio(
+                to_number=intv.client_telephone,
+                message=msg,
+                intervention_id=str(intv.id),
+                sms_type=SmsType.RDV_RAPPEL,
+                db=db,
+            )
+            intv.last_reminder_at = datetime.utcnow()
+            intv.reminder_count = (intv.reminder_count or 0) + 1
+            db.commit()
+            stats["sent"] += 1
+            stats["details"].append({
+                "intervention_id": str(intv.id),
+                "client_nom": intv.client_nom,
+                "action": "sent",
+                "phone": intv.client_telephone,
+            })
+        except Exception as e:
+            stats["errors"] += 1
+            stats["details"].append({
+                "intervention_id": str(intv.id),
+                "client_nom": intv.client_nom,
+                "action": "error",
+                "error": str(e),
+            })
+            logger.error(f"[BATCH] Erreur envoi rappel {intv.id} : {e}")
+    
+    logger.info(f"[BATCH] send-batch-reminders : {stats['sent']}/{stats['total_tomorrow']} envoyes, {stats['skipped_excluded']} exclus")
+    return stats
 
 
 @router.get("/{intervention_id}/signatures")

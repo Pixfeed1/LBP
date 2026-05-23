@@ -42,7 +42,9 @@ class Intervention(Base):
     
     # Détails travaux
     description_travaux = Column(Text, nullable=True)
-    description_calendar_raw = Column(Text, nullable=True)  # Brute Google pour parser refs Pacifica
+    description_calendar_raw = Column(Text, nullable=True)
+    numero_contrat = Column(String(50), nullable=True)
+    numero_sinistre = Column(String(50), nullable=True)  # Brute Google pour parser refs Pacifica
     montant_devis_ht = Column(Integer, nullable=True)  # en centimes
     montant_devis_ttc = Column(Integer, nullable=True)  # en centimes
     logement_plus_2_ans = Column(String(1), default="Y", nullable=False)  # Y/N
