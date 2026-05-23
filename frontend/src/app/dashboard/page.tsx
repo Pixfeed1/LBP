@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import {
   RefreshCw, Download, Plus, FileText, CheckCircle2, Clock,
-  AlertCircle, MessageSquare, Calendar,
+  AlertCircle, MessageSquare, Calendar, Send, Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Topbar } from "@/components/layout/topbar";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -37,7 +38,67 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<InterventionStatus | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const router = useRouter();
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get("/api/interventions/export-csv", {
+        responseType: "blob",
+      });
+      // Telecharger le fichier
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      link.setAttribute("download", `interventions_lbp_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Export CSV genere");
+    } catch (err: any) {
+      console.error("Erreur export:", err);
+      toast.error("Erreur lors de l\'export : " + (err?.response?.data?.detail || err?.message || "inconnue"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleSendBatchReminders = async () => {
+    if (!window.confirm("Envoyer les SMS de rappel pour les interventions de demain ?\n\n(Les events VIAREN, AWP, PARTICULIER, HS, HOMSERVE sont automatiquement exclus.)")) {
+      return;
+    }
+    setSendingReminders(true);
+    try {
+      const res = await api.post<{
+        total_tomorrow: number;
+        sent: number;
+        skipped_excluded: number;
+        skipped_no_phone: number;
+        skipped_bad_name: number;
+        skipped_recent_reminder: number;
+        errors: number;
+      }>("/api/interventions/send-batch-reminders");
+      const s = res.data;
+      if (s.total_tomorrow === 0) {
+        toast.info("Aucune intervention prevue pour demain.");
+      } else if (s.sent === 0 && s.errors === 0) {
+        toast.warning(`Aucun SMS envoye (${s.skipped_excluded} exclus, ${s.skipped_recent_reminder} deja relances)`);
+      } else {
+        toast.success(`${s.sent} rappel${s.sent > 1 ? "s" : ""} envoye${s.sent > 1 ? "s" : ""} - ${s.skipped_excluded} exclu${s.skipped_excluded > 1 ? "s" : ""}, ${s.errors} erreur${s.errors > 1 ? "s" : ""}`);
+      }
+      handleRefresh();
+    } catch (err: any) {
+      console.error("Erreur batch reminders:", err);
+      toast.error("Erreur lors de l'envoi des rappels : " + (err?.response?.data?.detail || err?.message || "inconnue"));
+    } finally {
+      setSendingReminders(false);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -162,9 +223,31 @@ export default function DashboardPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
               Actualiser
             </button>
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-md bg-white hover:bg-muted/50 transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              Exporter
+            <button
+              onClick={handleExportCsv}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-md bg-white hover:bg-muted/50 transition-colors disabled:opacity-50"
+              title="Telecharger toutes les interventions en CSV (compatible Excel)"
+            >
+              {exporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {exporting ? "Export..." : "Exporter"}
+            </button>
+            <button
+              onClick={handleSendBatchReminders}
+              disabled={sendingReminders}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-md bg-white hover:bg-muted/50 transition-colors disabled:opacity-50"
+              title="Envoie les SMS de rappel aux clients qui ont un RDV demain"
+            >
+              {sendingReminders ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {sendingReminders ? "Envoi..." : "Rappels J-1"}
             </button>
             <button onClick={() => setDialogOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
               <Plus className="h-3.5 w-3.5" />
