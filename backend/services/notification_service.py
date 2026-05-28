@@ -229,7 +229,32 @@ def notify_calendar_sync_success(db: Session, count_added: int, count_updated: i
 
 
 def notify_calendar_sync_error(db: Session, error: str) -> Notification:
-    """Notif sync Calendar foiree (CRITICAL → mail admin)."""
+    """Notif sync Calendar foiree (CRITICAL).
+
+    Throttle anti-spam : envoie au maximum 1 mail admin toutes les 6h.
+    La notification dashboard est toujours creee (pour l'historique), mais
+    le mail n'est envoye que si aucun mail de ce type n'a ete envoye recemment.
+    """
+    from datetime import timedelta
+
+    THROTTLE_HOURS = 6
+    cutoff = datetime.utcnow() - timedelta(hours=THROTTLE_HOURS)
+    recent_email = (
+        db.query(Notification)
+        .filter(
+            Notification.type == NotificationType.CALENDAR_SYNC_ERROR.value,
+            Notification.email_sent == True,  # noqa: E712
+            Notification.email_sent_at >= cutoff,
+        )
+        .first()
+    )
+    send_email = recent_email is None
+    if not send_email:
+        logger.info(
+            f"[NOTIF] Throttle sync error : mail deja envoye dans les {THROTTLE_HOURS}h, "
+            f"notif creee sans mail"
+        )
+
     return create_notification(
         db,
         type_=NotificationType.CALENDAR_SYNC_ERROR.value,
@@ -238,6 +263,24 @@ def notify_calendar_sync_error(db: Session, error: str) -> Notification:
         message=f"La synchronisation a echoue : {error[:300]}. Verifier la connexion Google.",
         link_url="/dashboard/calendrier",
         metadata={"error": error[:500]},
+        send_email=send_email,
+    )
+
+def notify_calendar_sync_burst(db: Session, count: int) -> Notification:
+    """Rafale de nouveaux events detectee : auto-envoi suspendu, validation manuelle requise."""
+    return create_notification(
+        db,
+        type_=NotificationType.CALENDAR_SYNC_ERROR.value,
+        severity=NotificationSeverity.WARNING.value,
+        title=f"{count} nouvelles interventions en attente",
+        message=(
+            f"{count} nouveaux rendez-vous ont ete importes d'un coup (probablement apres une "
+            f"reconnexion). Par securite, l'envoi automatique des SMS a ete suspendu. "
+            f"Verifiez la liste puis envoyez les rappels manuellement depuis le dashboard."
+        ),
+        link_url="/dashboard/interventions",
+        metadata={"burst_count": count},
+        send_email=True,
     )
 
 

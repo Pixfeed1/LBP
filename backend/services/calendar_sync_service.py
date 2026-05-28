@@ -31,6 +31,7 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
     try:
         events = google_calendar_service.list_calendar_events(db, creds_db)
         stats["events_total"] = len(events)
+        new_interventions = []  # collecte pour auto-envoi APRES la boucle (garde-fous)
 
         for event in events:
             try:
@@ -67,22 +68,8 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                         _nsvc.notify_intervention_created(db, intv, source="calendar")
                     except Exception as ne:
                         logger.warning(f"[SYNC] Notif intervention_created echec : {ne}")
-                    # Envoi auto signature/SMS si setting active
-                    try:
-                        from models.setting import Setting as _Setting
-                        _s = db.query(_Setting).filter(_Setting.key == "calendar.auto_send_sms").first()
-                        if _s and str(_s.value).lower() in ("y", "true", "1", "yes"):
-                            from services.signature_service import prepare_signature_workflow as _psw
-                            try:
-                                _wf = _psw(db, intv)
-                                logger.info(
-                                    f"[SYNC] Auto-envoi signature OK pour intv {intv.id} "
-                                    f"(sms_sent={_wf.get('sms_sent')}, docs={_wf.get('documents_generated')})"
-                                )
-                            except Exception as _we:
-                                logger.error(f"[SYNC] Auto-envoi signature echec pour intv {intv.id} : {_we}")
-                    except Exception as _se:
-                        logger.warning(f"[SYNC] Lecture setting auto_send_sms echec : {_se}")
+                    # Collecte pour auto-envoi APRES la boucle (garde-fous rafale + RDV passe)
+                    new_interventions.append(intv)
 
             except Exception as e:
                 logger.error(f"[SYNC] Erreur sur event {event.get('id')} : {e}")
@@ -90,6 +77,54 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                 continue
 
         db.commit()
+
+        # === Auto-envoi avec garde-fous : skip RDV passes + anti-rafale ===
+        stats["auto_sent"] = 0
+        stats["auto_skipped_past"] = 0
+        stats["auto_suspended"] = 0
+        if new_interventions:
+            try:
+                from models.setting import Setting as _Setting
+                _s = db.query(_Setting).filter(_Setting.key == "calendar.auto_send_sms").first()
+                auto_on = bool(_s and str(_s.value).lower() in ("y", "true", "1", "yes"))
+            except Exception as _se:
+                logger.warning(f"[SYNC] Lecture setting auto_send_sms echec : {_se}")
+                auto_on = False
+
+            if auto_on:
+                now = datetime.utcnow()
+                # Garde-fou 1 : ne jamais auto-envoyer pour un RDV deja passe
+                eligibles = [i for i in new_interventions if i.date_rdv and i.date_rdv >= now]
+                stats["auto_skipped_past"] = len(new_interventions) - len(eligibles)
+                if stats["auto_skipped_past"]:
+                    logger.info(f"[SYNC] {stats['auto_skipped_past']} RDV passes ignores (pas de SMS)")
+
+                # Garde-fou 2 : anti-rafale (ex. apres une longue deconnexion)
+                SEUIL_RAFALE = 10
+                if len(eligibles) > SEUIL_RAFALE:
+                    stats["auto_suspended"] = len(eligibles)
+                    logger.warning(
+                        f"[SYNC] RAFALE detectee ({len(eligibles)} nouveaux RDV a venir > seuil {SEUIL_RAFALE}). "
+                        f"Auto-envoi SUSPENDU, validation manuelle requise (bouton Rappels J-1)."
+                    )
+                    try:
+                        from services import notification_service as _nsvc
+                        _nsvc.notify_calendar_sync_burst(db, len(eligibles))
+                    except Exception as _ne:
+                        logger.warning(f"[SYNC] Notif rafale echec : {_ne}")
+                else:
+                    from services.signature_service import prepare_signature_workflow as _psw
+                    for intv in eligibles:
+                        try:
+                            _wf = _psw(db, intv)
+                            stats["auto_sent"] += 1
+                            logger.info(
+                                f"[SYNC] Auto-envoi signature OK pour intv {intv.id} "
+                                f"(sms_sent={_wf.get('sms_sent')}, docs={_wf.get('documents_generated')})"
+                            )
+                        except Exception as _we:
+                            logger.error(f"[SYNC] Auto-envoi signature echec pour intv {intv.id} : {_we}")
+                    db.commit()
 
         # Update last_sync_at
         creds_db.last_sync_at = datetime.utcnow()

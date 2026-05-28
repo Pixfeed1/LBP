@@ -124,33 +124,58 @@ def save_credentials(
 ) -> GoogleCredentials:
     """Sauvegarde ou met a jour les credentials d'un utilisateur en DB.
 
-    Si l'utilisateur a deja des creds actives, on les desactive et on en cree
-    une nouvelle. Permet de garder un historique.
+    UPSERT : reutilise la ligne existante du user (ou de l'email) si elle existe,
+    pour eviter d'accumuler des doublons a chaque reconnexion. Desactive les
+    eventuels doublons historiques. Garde l'ancien refresh_token si Google n'en
+    renvoie pas un nouveau (cas frequent sur les reconnexions).
     """
-    # Desactiver les anciennes credentials du meme user
-    if user_id:
-        db.query(GoogleCredentials).filter(
-            GoogleCredentials.user_id == user_id,
-            GoogleCredentials.is_active == True,
-        ).update({"is_active": False})
-
     expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+    new_refresh = tokens.get("refresh_token", "")
 
-    creds = GoogleCredentials(
-        user_id=user_id,
-        google_email=email,
-        access_token=tokens["access_token"],
-        refresh_token=tokens.get("refresh_token", ""),
-        token_expires_at=expires_at,
-        scopes=tokens.get("scope", ""),
-        is_active=True,
-    )
-    db.add(creds)
+    # Recuperer toutes les creds du user (ou par email en fallback)
+    q = db.query(GoogleCredentials)
+    if user_id:
+        all_creds = q.filter(GoogleCredentials.user_id == user_id).order_by(
+            GoogleCredentials.created_at.desc()
+        ).all()
+    else:
+        all_creds = q.filter(GoogleCredentials.google_email == email).order_by(
+            GoogleCredentials.created_at.desc()
+        ).all()
+
+    target = None
+    for cred_row in all_creds:
+        if target is None:
+            target = cred_row  # on garde la plus recente comme cible
+        else:
+            cred_row.is_active = False  # desactive les doublons
+
+    if target is not None:
+        target.google_email = email
+        target.access_token = tokens["access_token"]
+        if new_refresh:  # ne pas ecraser un refresh_token valide par du vide
+            target.refresh_token = new_refresh
+        target.token_expires_at = expires_at
+        target.scopes = tokens.get("scope", "")
+        target.is_active = True
+        creds = target
+        logger.info(f"[GOAUTH] Credentials mis a jour (upsert) pour {email}")
+    else:
+        creds = GoogleCredentials(
+            user_id=user_id,
+            google_email=email,
+            access_token=tokens["access_token"],
+            refresh_token=new_refresh,
+            token_expires_at=expires_at,
+            scopes=tokens.get("scope", ""),
+            is_active=True,
+        )
+        db.add(creds)
+        logger.info(f"[GOAUTH] Credentials crees pour {email}")
+
     db.commit()
     db.refresh(creds)
-    logger.info(f"[GOAUTH] Credentials sauvegardes pour {email}")
     return creds
-
 
 def get_active_credentials(db: Session, user_id: Optional[str] = None) -> Optional[GoogleCredentials]:
     """Recupere les credentials actives.
