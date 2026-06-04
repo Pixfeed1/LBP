@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   RefreshCw, Download, Plus, FileText, CheckCircle2, Clock,
-  AlertCircle, MessageSquare, Calendar, Send, Loader2,
+  AlertCircle, MessageSquare, Calendar, Send, Loader2, Power,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,7 +40,43 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [autoSendEnabled, setAutoSendEnabled] = useState<boolean | null>(null);
+  const [autoSendToggling, setAutoSendToggling] = useState(false);
   const router = useRouter();
+
+  const loadAutoSendSetting = async () => {
+    try {
+      const res = await api.get<{ key: string; value: string }>("/api/settings/calendar.auto_send_sms");
+      const v = String(res.data.value).toLowerCase();
+      setAutoSendEnabled(["true", "y", "yes", "1"].includes(v));
+    } catch (err) {
+      console.error("Erreur chargement setting auto_send_sms:", err);
+      setAutoSendEnabled(false);
+    }
+  };
+
+  const handleToggleAutoSend = async () => {
+    if (autoSendEnabled === null) return;
+    const next = !autoSendEnabled;
+    const action = next ? "ACTIVER" : "DESACTIVER";
+    const explain = next
+      ? "Les SMS de signature seront envoyes automatiquement a chaque nouveau RDV importe du Calendar.\n\nContinuer ?"
+      : "Aucun SMS ne sera envoye automatiquement. Vous gardez la main via le bouton Rappels J-1.\n\nContinuer ?";
+    if (!window.confirm(`${action} les envois automatiques ?\n\n${explain}`)) return;
+    setAutoSendToggling(true);
+    try {
+      await api.put("/api/settings", {
+        settings: [{ key: "calendar.auto_send_sms", value: next ? "true" : "false" }],
+      });
+      setAutoSendEnabled(next);
+      toast.success(next ? "Envois automatiques ACTIVES" : "Envois automatiques DESACTIVES");
+    } catch (err: any) {
+      console.error("Erreur toggle auto_send:", err);
+      toast.error("Erreur lors du changement : " + (err?.response?.data?.detail || err?.message || "inconnue"));
+    } finally {
+      setAutoSendToggling(false);
+    }
+  };
 
   const handleExportCsv = async () => {
     setExporting(true);
@@ -125,12 +161,13 @@ export default function DashboardPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadStats(), loadInterventions()]);
+    await Promise.all([loadStats(), loadInterventions(), loadAutoSendSetting()]);
     setRefreshing(false);
   };
 
   useEffect(() => { if (user) loadStats(); }, [user]);
   useEffect(() => { if (user) loadInterventions(); }, [user, activeTab]);
+  useEffect(() => { if (user) loadAutoSendSetting(); }, [user]);
 
   if (!user) return null;
 
@@ -215,6 +252,25 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {autoSendEnabled !== null && (
+              <button
+                onClick={handleToggleAutoSend}
+                disabled={autoSendToggling}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md font-medium transition-colors disabled:opacity-50 border ${
+                  autoSendEnabled
+                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                    : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                }`}
+                title="Active ou desactive les SMS automatiques envoyes a chaque nouveau RDV importe"
+              >
+                {autoSendToggling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Power className="h-3.5 w-3.5" />
+                )}
+                {autoSendEnabled ? "Envois auto : ON" : "Envois auto : OFF"}
+              </button>
+            )}
             <button
               onClick={handleRefresh}
               disabled={refreshing}

@@ -25,6 +25,7 @@ from loguru import logger
 PATTERNS_NEW_REFS = {
     "numero_contrat": [r"CONTRAT\s*:\s*([A-Z0-9]+)"],
     "numero_sinistre": [r"SINISTRE\s*:\s*([A-Z0-9]+)"],
+    "reference_ma": [r"REFMA\s*:\s*([A-Z0-9]+)", r"REF\s*MA\s*:\s*([A-Z0-9]+)", r"R\.?\s*MA\s*:\s*([A-Z0-9]+)"],
 }
 PATTERNS = {
     "nom_complet": [r"NOM\s*:\s*([A-ZÀ-Ÿ][A-ZÀ-Ÿ\-\s]+?)(?:\s*<|\s*\n|$)"],
@@ -216,6 +217,7 @@ def parse_event(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "client_ville": final_ville,
         "numero_contrat": _extract_first(PATTERNS_NEW_REFS["numero_contrat"], description) or "",
         "numero_sinistre": _extract_first(PATTERNS_NEW_REFS["numero_sinistre"], description) or "",
+        "reference_ma": _extract_first(PATTERNS_NEW_REFS["reference_ma"], description) or "",
         "date_rdv": date_rdv,
         "duree_estimee": duree_minutes,
         "description_travaux": _extract_first(PATTERNS["description_travaux"], description) or summary,

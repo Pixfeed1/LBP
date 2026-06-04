@@ -42,11 +42,12 @@ SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
         "page": 0,
         "x": 51,                                        # fallback si ancre introuvable
         "y": 483,                                       # 12pt sous l'ancre y=471
-        "width": 130,
-        "height": 50,
+        "width": 180,
+        "height": 70,
         "fallback_search": "Date et Signature du Client",
         "search_offset_x": 0,
         "search_offset_y": 12,                          # 12pt sous le label
+        "multi_anchor": True,                           # Signer aux 2 sections (Reception + Levee des reserves)
     },
     # Fiche travaux (généré ReportLab) : signature client = sous "Date et Signature du Client"
     # Ancre trouvée à x=374, y=513. Signature placée 15pt sous ce label.
@@ -54,8 +55,8 @@ SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
         "page": 0,
         "x": 374,                                       # fallback si ancre introuvable
         "y": 525,                                       # 12pt sous l'ancre
-        "width": 130,
-        "height": 50,
+        "width": 180,
+        "height": 70,
         "fallback_search": "Date et Signature du Client",
         "search_offset_x": 0,
         "search_offset_y": 12,                          # 12pt sous le label
@@ -67,8 +68,8 @@ SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
         "page": 0,
         "x": 350,
         "y": 720,
-        "width": 130,
-        "height": 50,
+        "width": 180,
+        "height": 70,
         "fallback_search": "Fait à",   # ancre si dispo
         "search_offset_x": 60,
         "search_offset_y": 30,
@@ -80,8 +81,8 @@ SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
         "page": 0,
         "x": 320,
         "y": 700,
-        "width": 130,
-        "height": 50,
+        "width": 180,
+        "height": 70,
         "fallback_search": "Fait à",
         "search_offset_x": 60,
         "search_offset_y": 30,
@@ -184,22 +185,27 @@ def _insert_signature_image(
         )
 
     # Tenter d'utiliser une ancre dynamique
+    rects_to_sign = [rect]  # par defaut, la zone fallback
     if zone.get("fallback_search"):
         anchors = page.search_for(zone["fallback_search"])
         if anchors:
-            anchor = anchors[0]
             offset_x = zone.get("search_offset_x", 60)
             offset_y = zone.get("search_offset_y", 30)
-            rect = fitz.Rect(
-                anchor.x0 + offset_x,
-                anchor.y0 + offset_y,
-                anchor.x0 + offset_x + zone["width"],
-                anchor.y0 + offset_y + zone["height"],
-            )
-            logger.debug(f"  Ancre '{zone['fallback_search']}' trouvée à ({anchor.x0:.0f}, {anchor.y0:.0f})")
+            # Multi-anchor: signer a chaque occurrence (ex: PV avec 2 sections)
+            anchors_to_use = anchors if zone.get("multi_anchor") else [anchors[0]]
+            rects_to_sign = []
+            for a in anchors_to_use:
+                rects_to_sign.append(fitz.Rect(
+                    a.x0 + offset_x,
+                    a.y0 + offset_y,
+                    a.x0 + offset_x + zone["width"],
+                    a.y0 + offset_y + zone["height"],
+                ))
+                logger.debug(f"  Ancre '{zone['fallback_search']}' trouvee a ({a.x0:.0f}, {a.y0:.0f})")
 
-    # Insérer l'image
-    page.insert_image(rect, stream=image_bytes, overlay=True, keep_proportion=True)
+    # Inserer l'image a chaque rect
+    for r in rects_to_sign:
+        page.insert_image(r, stream=image_bytes, overlay=True, keep_proportion=True)
 
 
 # ============================================================
