@@ -132,7 +132,7 @@ export default function SignaturePage() {
           signature_image: signatureImage,
           signer_name_typed: signerName.trim(),
           consent_text: consentText.trim(),
-          client_email: clientEmail.trim() || null,
+          client_email: clientEmail.trim(),
         }),
       });
       if (!res.ok) {
@@ -294,6 +294,19 @@ export default function SignaturePage() {
                 placeholder={REQUIRED_MENTION}
                 required
               />
+            </div>
+
+            <div>
+              <Label htmlFor="client-email">Votre adresse e-mail <span className="text-red-500">*</span></Label>
+              <Input
+                id="client-email"
+                type="email"
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+                placeholder="vous@exemple.fr"
+                required
+              />
+              <p className="text-xs text-slate-500 mt-1">Vous recevrez une copie de vos documents signes a cette adresse.</p>
             </div>
 
             <div>

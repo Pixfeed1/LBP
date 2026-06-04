@@ -121,8 +121,48 @@ def send_sms_twilio(
         raise
 
 
-def build_signature_sms_message(client_name: str, signature_url: str) -> str:
-    """Construit le corps du SMS de signature (court, ≤160 caractères idéalement)."""
+def _fetch_setting_sync(key: str) -> str:
+    """Lit un setting depuis la DB (utilitaire local)."""
+    from sqlalchemy.orm import sessionmaker
+    from database import engine
+    from models.setting import Setting
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        setting = db.query(Setting).filter(Setting.key == key).first()
+        return setting.value if setting else None
+    finally:
+        db.close()
+
+
+def build_signature_sms_message(client_name: str, signature_url: str, prenom: str = "", nom: str = "") -> str:
+    """Construit le corps du SMS de signature en utilisant le template configure en DB.
+    
+    Variables supportees: {prenom}, {nom}, {url}, {lien}
+    Fallback sur message hardcoded si template absent.
+    """
+    # Lire le template configure (signature_initial en priorite, sinon initial, sinon hardcoded)
+    template = _fetch_setting_sync("sms.template_signature_initial") or _fetch_setting_sync("sms.template_initial")
+    
+    if template:
+        # Variables : si prenom/nom non fournis, deduire depuis client_name
+        if not prenom and client_name:
+            parts = client_name.split()
+            prenom = parts[0] if parts else ""
+            nom = " ".join(parts[1:]) if len(parts) > 1 else ""
+        
+        replacements = {
+            "{prenom}": prenom or "",
+            "{nom}": nom or "",
+            "{url}": signature_url,
+            "{lien}": signature_url,
+        }
+        msg = template
+        for key, value in replacements.items():
+            msg = msg.replace(key, value)
+        return msg
+    
+    # Fallback historique
     return (
         f"Bonjour {client_name}, suite a votre intervention par Les Bons Plombiers, "
         f"merci de signer vos documents : {signature_url}"

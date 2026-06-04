@@ -45,7 +45,7 @@ def intervention_to_client_data(intervention: Intervention) -> dict:
         "montant_tva": f"{(intervention.montant_devis_ttc - intervention.montant_devis_ht) / 100:.2f}" if intervention.montant_devis_ttc and intervention.montant_devis_ht else "0,00",
         "compagnie": "",  # Pas de compagnie en projet 2 (sauf si fourni dans description Google Cal)
         "sinistre": "",   # Pas de N° sinistre par défaut
-        "reference_ma": "",  # Pas de Ref MA par défaut
+        "reference_ma": intervention.reference_ma or "",  # Depuis Calendar (REFMA: xxx)
         "numero_contrat": intervention.numero_contrat or "",
         "numero_sinistre": intervention.numero_sinistre or _pacifica_refs.get("numero_sinistre", ""),
         "franchise": _pacifica_refs.get("franchise", "") or "0,00 €",

@@ -123,7 +123,7 @@ def prepare_signature_workflow(
                 signature_url = get_signature_url(token)
         else:
             signature_url = get_signature_url(token)
-        message = build_signature_sms_message(client_name, signature_url)
+        message = build_signature_sms_message(client_name, signature_url, prenom=intervention.client_prenom or "", nom=intervention.client_nom or "")
         sms_result = send_sms_twilio(
             intervention.client_telephone,
             message,
