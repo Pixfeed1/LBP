@@ -79,14 +79,15 @@ SIGNATURE_ZONES: Dict[str, Dict[str, Any]] = {
     # Mais on prévoit le cas
     "delegation_paiement": {
         "page": 0,
-        "x": 320,
+        "x": 200,
         "y": 700,
         "width": 180,
-        "height": 70,
-        "fallback_search": "Fait à",
-        "search_offset_x": 60,
-        "search_offset_y": 30,
+        "height": 50,                                   # tient entre "Fait a" et "Bon pour accord"
+        "fallback_search": "Fait à",                    # ancre haut du cadre
+        "search_offset_x": 0,                           # aligne a gauche (comme "Fait a")
+        "search_offset_y": 18,                          # sous "Fait a Paris, le ..."
         "needs_white_bg": True,
+        # pre_text fourni dynamiquement depuis signature.signer_bon_pour_accord
     },
 }
 
@@ -203,9 +204,23 @@ def _insert_signature_image(
                 ))
                 logger.debug(f"  Ancre '{zone['fallback_search']}' trouvee a ({a.x0:.0f}, {a.y0:.0f})")
 
-    # Inserer l'image a chaque rect
+    # Inserer l'image a chaque rect (+ pre_text si defini)
+    pre_text = zone.get("pre_text")
     for r in rects_to_sign:
-        page.insert_image(r, stream=image_bytes, overlay=True, keep_proportion=True)
+        if pre_text:
+            # Tamponner le texte au-dessus de la signature (italique pour evoquer la manuscription)
+            page.insert_text(
+                (r.x0, r.y0 + 10),
+                pre_text,
+                fontname="helv",
+                fontsize=10,
+                color=(0, 0, 0),
+            )
+            # Decaler la zone signature vers le bas pour laisser la place au texte
+            sig_rect = fitz.Rect(r.x0, r.y0 + 14, r.x1, r.y1)
+            page.insert_image(sig_rect, stream=image_bytes, overlay=True, keep_proportion=True)
+        else:
+            page.insert_image(r, stream=image_bytes, overlay=True, keep_proportion=True)
 
 
 # ============================================================
@@ -259,7 +274,11 @@ def sign_document_pdf(
         page_index = zone["page"] if zone["page"] >= 0 else len(pdf_doc) + zone["page"]
         page = pdf_doc[page_index]
         image_bytes = _decode_signature_image(signature.signature_image)
-        _insert_signature_image(page, image_bytes, zone)
+        # Injecter pre_text dynamique depuis la signature (cas delegation)
+        zone_with_text = dict(zone)
+        if doc_type == "delegation_paiement" and getattr(signature, "signer_bon_pour_accord", None):
+            zone_with_text["pre_text"] = signature.signer_bon_pour_accord
+        _insert_signature_image(page, image_bytes, zone_with_text)
 
         # 2. Bandeau juridique sur TOUTES les pages
         _draw_legal_banner_on_all_pages(pdf_doc, signature)

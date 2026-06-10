@@ -275,7 +275,7 @@ def job_relance_signatures():
                 logger.warning(f"[SCHEDULER] Skip {intv.id} : pas de token de signature retrouvable")
                 continue
 
-            template = _fetch_setting("sms.template_signature_relance") or _fetch_setting("sms.template_relance") or \
+            template = _fetch_setting("sms.template_relance") or \
                 "Bonjour {prenom}, n'oubliez pas de signer vos documents : {url}"
             msg = _format_template(template, intv, signature_token=token, nb_docs=unsigned_count)
 

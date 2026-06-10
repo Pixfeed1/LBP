@@ -34,7 +34,8 @@ class Signature(Base):
     signer_user_agent = Column(Text, nullable=True)
     signer_name_typed = Column(String(255), nullable=True)  # nom retapé
     signer_email = Column(String(255), nullable=True)  # email pour recevoir copie PDF
-    signer_consent_text = Column(Text, nullable=True)  # mention manuscrite
+    signer_consent_text = Column(Text, nullable=True)  # mention manuscrite "Lu et approuve"
+    signer_bon_pour_accord = Column(Text, nullable=True)  # mention "Bon pour accord" (si delegation)
     hash_sha256 = Column(String(64), nullable=True)
     
     # Provider info

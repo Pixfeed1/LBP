@@ -142,7 +142,7 @@ def build_signature_sms_message(client_name: str, signature_url: str, prenom: st
     Fallback sur message hardcoded si template absent.
     """
     # Lire le template configure (signature_initial en priorite, sinon initial, sinon hardcoded)
-    template = _fetch_setting_sync("sms.template_signature_initial") or _fetch_setting_sync("sms.template_initial")
+    template = _fetch_setting_sync("sms.template_initial")  # SMS initial (modifiable dans Configuration)
     
     if template:
         # Variables : si prenom/nom non fournis, deduire depuis client_name

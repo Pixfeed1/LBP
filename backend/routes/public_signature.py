@@ -65,6 +65,7 @@ class SignRequest(BaseModel):
     signature_image: str = Field(min_length=100, description="Canvas signature en base64 PNG (data URL)")
     signer_name_typed: str = Field(min_length=2, max_length=255, description="Nom retapé par le client")
     consent_text: str = Field(min_length=5, max_length=500, description="Mention manuscrite saisie")
+    bon_pour_accord_text: Optional[str] = Field(default=None, max_length=500, description="Mention 'Bon pour accord' si delegation")
     client_email: Optional[str] = None  # email pour recevoir le PDF signe
 
 
@@ -238,6 +239,7 @@ async def sign_documents(
             signer_name_typed=payload.signer_name_typed,
                 signer_email=payload.client_email,
             signer_consent_text=payload.consent_text,
+            signer_bon_pour_accord=payload.bon_pour_accord_text,
             hash_sha256=hash_sha256,
             provider="maison",
             metadata_json=metadata,

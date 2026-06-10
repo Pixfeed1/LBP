@@ -35,6 +35,7 @@ interface SignatureInfo {
 }
 
 const REQUIRED_MENTION = "Lu et approuvé";
+const BPA_MENTION = "Bon pour accord";
 
 const DOCUMENT_LABELS: Record<string, string> = {
   proces_verbal: "Procès-verbal de réception",
@@ -56,6 +57,7 @@ export default function SignaturePage() {
 
   const [signerName, setSignerName] = useState("");
   const [consentText, setConsentText] = useState("");
+  const [bonPourAccord, setBonPourAccord] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
@@ -121,6 +123,11 @@ export default function SignaturePage() {
       toast.error(`Vous devez écrire exactement : "${REQUIRED_MENTION}"`);
       return;
     }
+    const hasDelegationSign = info?.documents?.some((d) => d.type === "delegation_paiement") ?? false;
+    if (hasDelegationSign && bonPourAccord.trim().toLowerCase() !== BPA_MENTION.toLowerCase()) {
+      toast.error(`Vous devez écrire exactement : "${BPA_MENTION}"`);
+      return;
+    }
 
     setSigning(true);
     try {
@@ -132,6 +139,7 @@ export default function SignaturePage() {
           signature_image: signatureImage,
           signer_name_typed: signerName.trim(),
           consent_text: consentText.trim(),
+          bon_pour_accord_text: (info?.documents?.some((d) => d.type === "delegation_paiement") ?? false) ? bonPourAccord.trim() : null,
           client_email: clientEmail.trim(),
         }),
       });
@@ -285,7 +293,7 @@ export default function SignaturePage() {
 
             <div>
               <Label htmlFor="consent">
-                Tapez exactement : <strong className="text-slate-900">{REQUIRED_MENTION}</strong>
+                Tapez exactement : <strong className="text-slate-900">{REQUIRED_MENTION}</strong> <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="consent"
@@ -295,6 +303,21 @@ export default function SignaturePage() {
                 required
               />
             </div>
+
+            {info?.documents?.some((d) => d.type === "delegation_paiement") && (
+              <div>
+                <Label htmlFor="bon-pour-accord">
+                  Pour la délégation de paiement, tapez exactement : <strong className="text-slate-900">{BPA_MENTION}</strong> <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="bon-pour-accord"
+                  value={bonPourAccord}
+                  onChange={(e) => setBonPourAccord(e.target.value)}
+                  placeholder={BPA_MENTION}
+                  required
+                />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="client-email">Votre adresse e-mail <span className="text-red-500">*</span></Label>
@@ -310,7 +333,7 @@ export default function SignaturePage() {
             </div>
 
             <div>
-              <Label>Votre signature manuscrite</Label>
+              <Label>Votre signature manuscrite <span className="text-red-500">*</span></Label>
               <div className="mt-2 border-2 border-dashed border-slate-300 rounded-lg bg-white relative">
                 <canvas
                   ref={canvasRef}
