@@ -257,6 +257,21 @@ async def sign_documents(
     db.commit()
     db.refresh(intervention)
 
+    # === FIX BUG 10/06/2026 : incruster AVANT email, sinon le client recoit unsigned ===
+    try:
+        from services.pdf_signing import sign_intervention_documents
+        sign_result = sign_intervention_documents(db, intervention.id)
+        logger.info(
+            f"📝 PDFs incrustés : {sign_result['signed']}/{sign_result['total']} "
+            f"({sign_result['errors']} erreurs)"
+        )
+        # Refresh des documents pour que send_signed_pdf_email lise file_path_signed a jour
+        for _doc in documents:
+            db.refresh(_doc)
+    except Exception as e:
+        logger.exception(f"⚠️ Incrustation PDF échouée pour intervention {intervention.id} : {e}")
+        # On continue : la signature en DB reste valide, on pourra rejouer le script rétro
+
     # Notif admin : signature complete
     try:
         from services import notification_service as _nsvc
@@ -264,7 +279,7 @@ async def sign_documents(
     except Exception as e:
         logger.warning(f"[SIGN] Notif signature_complete echec : {e}")
 
-    # Envoi email PDF signe au client si email fourni
+    # Envoi email PDF signe au client si email fourni (apres incrustation = PDFs signes)
     if payload.client_email:
         try:
             from services import email_service as _email_svc
@@ -291,18 +306,6 @@ async def sign_documents(
             logger.error(f"[SIGN] Erreur envoi email : {e}")
 
     db.commit()
-
-    # Incruster les signatures dans les PDFs (try/except : ne fait pas échouer la signature)
-    try:
-        from services.pdf_signing import sign_intervention_documents
-        sign_result = sign_intervention_documents(db, intervention.id)
-        logger.info(
-            f"📝 PDFs incrustés : {sign_result['signed']}/{sign_result['total']} "
-            f"({sign_result['errors']} erreurs)"
-        )
-    except Exception as e:
-        logger.exception(f"⚠️ Incrustation PDF échouée pour intervention {intervention.id} : {e}")
-        # On continue : la signature en DB reste valide, on pourra rejouer le script rétro
 
     logger.info(
         f"✅ Signature OK : intervention={intervention.id}, "
