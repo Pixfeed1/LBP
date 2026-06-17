@@ -66,7 +66,7 @@ export default function DashboardPage() {
     setAutoSendToggling(true);
     try {
       await api.put("/api/settings", {
-        settings: [{ key: "calendar.auto_send_sms", value: next ? "true" : "false" }],
+        settings: { "calendar.auto_send_sms": next ? "true" : "false" },
       });
       setAutoSendEnabled(next);
       toast.success(next ? "Envois automatiques ACTIVES" : "Envois automatiques DESACTIVES");

@@ -56,22 +56,21 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-
 </head>
 <body>
   <div class="header">
-    <h1>Vos documents signes - Les Bons Plombiers</h1>
+    <h1>Vos documents signés - Les Bons Plombiers</h1>
   </div>
   <div class="content">
     <p>Bonjour {nom},</p>
-    <p>Vous trouverez en piece jointe les documents que vous avez signes electroniquement{f' suite a notre intervention du {date_rdv}' if date_rdv else ''}.</p>
+    <p>Vous trouverez en pièce jointe les documents que vous avez signés électroniquement à la suite de notre intervention.</p>
     <div class="docs-box">
       <strong>Documents joints :</strong>
       <ul>
-        <li>Proces-verbal de reception</li>
+        <li>Procès-verbal de réception</li>
         <li>Fiche de travaux</li>
-        <li>Attestation TVA (si logement de plus de 2 ans)</li>
+        <li>Attestation TVA (si votre logement a plus de 2 ans)</li>
       </ul>
     </div>
-    <p>Conservez precieusement ces documents, ils ont valeur legale.</p>
-    <p>Pour toute question, n'hesitez pas a nous contacter.</p>
-    <p>Cordialement,<br><strong>L'equipe Les Bons Plombiers</strong></p>
+    <p>Pour toute question, n\'hésitez pas à nous contacter.</p>
+    <p>Cordialement,<br><strong>Les Bons Plombiers</strong></p>
   </div>
   <div class="footer">
     Les Bons Plombiers - <a href="https://lesbonsplombiers.fr">lesbonsplombiers.fr</a><br>
@@ -99,7 +98,7 @@ def send_signed_pdf_email(
         return {"success": False, "error": "Email destinataire manquant"}
 
     nom = f"{intervention.client_prenom or ''} {intervention.client_nom or ''}".strip() or "Client"
-    subject = f"Vos documents signes - Les Bons Plombiers"
+    subject = f"Vos documents signés - Les Bons Plombiers"
 
     # Construire le message
     msg = EmailMessage()
@@ -110,12 +109,17 @@ def send_signed_pdf_email(
     # Plain text fallback
     msg.set_content(f"""Bonjour {nom},
 
-Vous trouverez en piece jointe les documents signes electroniquement.
+Vous trouverez en pièce jointe les documents que vous avez signés électroniquement à la suite de notre intervention.
 
-Conservez precieusement ces documents, ils ont valeur legale.
+Documents joints :
+- Procès-verbal de réception
+- Fiche de travaux
+- Attestation TVA (si votre logement a plus de 2 ans)
+
+Pour toute question, n\'hésitez pas à nous contacter.
 
 Cordialement,
-L'equipe Les Bons Plombiers
+Les Bons Plombiers
 """)
 
     # HTML version
