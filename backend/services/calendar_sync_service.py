@@ -98,6 +98,17 @@ def sync_for_credentials(db: Session, creds_db: GoogleCredentials) -> Dict[str, 
                 stats["auto_skipped_past"] = len(new_interventions) - len(eligibles)
                 if stats["auto_skipped_past"]:
                     logger.info(f"[SYNC] {stats['auto_skipped_past']} RDV passes ignores (pas de SMS)")
+                # === FILTRE METIER (18/06/2026) : envoi auto uniquement si dossier assurance ===
+                _before_metier = len(eligibles)
+                eligibles = [
+                    i for i in eligibles
+                    if (i.numero_contrat and i.numero_contrat.strip())
+                       or (i.numero_sinistre and i.numero_sinistre.strip())
+                       or (i.reference_ma and i.reference_ma.strip())
+                ]
+                stats["auto_skipped_no_ref"] = _before_metier - len(eligibles)
+                if stats["auto_skipped_no_ref"]:
+                    logger.info(f"[SYNC] {stats['auto_skipped_no_ref']} RDV sans REFMA/contrat/sinistre ignores (pas de SMS)")
 
                 # Garde-fou 2 : anti-rafale (ex. apres une longue deconnexion)
                 SEUIL_RAFALE = 10
